@@ -1,6 +1,5 @@
 import React from 'react'
 import type { Tier } from '../../api/types'
-import { ShieldAlert, AlertTriangle, CheckCircle2, HelpCircle } from 'lucide-react'
 
 interface TierBadgeProps {
   tier: Tier | 'unknown'
@@ -10,19 +9,19 @@ interface TierBadgeProps {
 
 export const TierBadge: React.FC<TierBadgeProps> = ({ tier, size = 'md', showIcon = true }) => {
   const sizeClasses = {
-    sm: 'text-xs px-2 py-0.5 gap-1',
+    sm: 'text-[11px] px-2 py-0.5 gap-1',
     md: 'text-xs px-2.5 py-1 gap-1.5 font-medium',
     lg: 'text-sm px-3.5 py-1.5 gap-2 font-semibold',
   }
 
-  const iconSize = size === 'sm' ? 12 : size === 'md' ? 14 : 16
+  const iconSize = size === 'sm' ? 'text-[13px]' : size === 'md' ? 'text-[15px]' : 'text-[18px]'
 
   if (tier === 'critical') {
     return (
       <span
-        className={`inline-flex items-center rounded-full border border-red-200 bg-red-50 text-red-700 font-medium ${sizeClasses[size]}`}
+        className={`inline-flex items-center rounded-lg bg-error-container text-on-error-container font-semibold shadow-xs ${sizeClasses[size]}`}
       >
-        {showIcon && <ShieldAlert size={iconSize} className="text-red-600 shrink-0" />}
+        {showIcon && <span className={`material-symbols-outlined ${iconSize} text-error`}>crisis_alert</span>}
         <span>Critical Risk</span>
       </span>
     )
@@ -31,9 +30,9 @@ export const TierBadge: React.FC<TierBadgeProps> = ({ tier, size = 'md', showIco
   if (tier === 'moderate') {
     return (
       <span
-        className={`inline-flex items-center rounded-full border border-amber-300 bg-amber-50 text-amber-800 font-medium ${sizeClasses[size]}`}
+        className={`inline-flex items-center rounded-lg bg-amber-100 text-amber-900 border border-amber-300 font-semibold ${sizeClasses[size]}`}
       >
-        {showIcon && <AlertTriangle size={iconSize} className="text-amber-600 shrink-0" />}
+        {showIcon && <span className={`material-symbols-outlined ${iconSize} text-amber-700`}>priority_high</span>}
         <span>Moderate Risk</span>
       </span>
     )
@@ -42,9 +41,9 @@ export const TierBadge: React.FC<TierBadgeProps> = ({ tier, size = 'md', showIco
   if (tier === 'low') {
     return (
       <span
-        className={`inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 font-medium ${sizeClasses[size]}`}
+        className={`inline-flex items-center rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold ${sizeClasses[size]}`}
       >
-        {showIcon && <CheckCircle2 size={iconSize} className="text-emerald-600 shrink-0" />}
+        {showIcon && <span className={`material-symbols-outlined ${iconSize} text-emerald-600`}>verified</span>}
         <span>Low Risk</span>
       </span>
     )
@@ -52,9 +51,9 @@ export const TierBadge: React.FC<TierBadgeProps> = ({ tier, size = 'md', showIco
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border border-purple-200 bg-purple-50 text-purple-800 font-medium ${sizeClasses[size]}`}
+      className={`inline-flex items-center rounded-lg bg-purple-100 text-purple-900 border border-purple-200 font-semibold ${sizeClasses[size]}`}
     >
-      {showIcon && <HelpCircle size={iconSize} className="text-purple-600 shrink-0" />}
+      {showIcon && <span className={`material-symbols-outlined ${iconSize} text-purple-600`}>help_outline</span>}
       <span>Unknown Tier</span>
     </span>
   )

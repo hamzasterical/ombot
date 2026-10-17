@@ -4,11 +4,16 @@ import { api } from '../api/client'
 import type { LowTierAuditItem } from '../api/types'
 import { EmptyState } from '../components/common/EmptyState'
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton'
+import { WorkflowBadge, WorkflowFilter, useWorkflowFilter } from '../components/common/WorkflowBadge'
+import type { Workflow } from '../api/types'
+
+// Audit state -> case state: not yet audited = unchecked, escalated to staff = under investigation, verified = solved
+const workflowOfSample = (s: LowTierAuditItem): Workflow =>
+  s.auditStatus === 'pending' ? 'unchecked' : s.auditStatus === 'escalated' ? 'investigating' : 'solved'
 
 export const LowTierAudit: React.FC = () => {
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'verified_fine' | 'escalated'>('all')
 
   const { data: samples = [], isLoading, error } = useQuery({
     queryKey: ['low-tier-audit'],
@@ -27,20 +32,12 @@ export const LowTierAudit: React.FC = () => {
     },
   })
 
-  const filteredSamples = samples.filter((s: LowTierAuditItem) => {
-    if (statusFilter !== 'all' && s.auditStatus !== statusFilter) return false
+  const wf = useWorkflowFilter(samples, workflowOfSample)
+
+  const filteredSamples = wf.filtered.filter((s: LowTierAuditItem) => {
     if (!searchTerm) return true
     const term = searchTerm.toLowerCase()
     return s.caseId.toLowerCase().includes(term) || s.customerId.toLowerCase().includes(term) || s.complaintText.toLowerCase().includes(term) || s.sentReply.toLowerCase().includes(term) || s.category.toLowerCase().includes(term)
-  })
-
-  const chipStyle = (active: boolean): React.CSSProperties => ({
-    height: 32, padding: '0 0.875rem', borderRadius: 9999,
-    fontFamily: "'DM Sans', sans-serif", fontSize: '0.8125rem', fontWeight: 500,
-    cursor: 'pointer', border: 'none', outline: 'none', transition: 'background 0.15s, color 0.15s',
-    background: active ? 'var(--color-primary)' : 'var(--color-surface-container-low)',
-    color: active ? 'var(--color-on-primary)' : 'var(--color-secondary)',
-    textTransform: 'capitalize' as const,
   })
 
   return (
@@ -79,14 +76,7 @@ export const LowTierAudit: React.FC = () => {
 
       {/* Filters */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-secondary)' }}>Filter Status:</span>
-          {(['all', 'pending', 'verified_fine', 'escalated'] as const).map(f => (
-            <button key={f} onClick={() => setStatusFilter(f)} style={chipStyle(statusFilter === f)}>
-              {f.replace('_', ' ')}
-            </button>
-          ))}
-        </div>
+        <WorkflowFilter selected={wf.selected} counts={wf.counts} onToggle={wf.toggle} onClear={wf.clear} />
         <div style={{ position: 'relative', minWidth: 280 }}>
           <span className="material-symbols-outlined" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: 'var(--color-tertiary)' }}>search</span>
           <input
@@ -142,6 +132,8 @@ export const LowTierAudit: React.FC = () => {
                       <span className="material-symbols-outlined" style={{ fontSize: 12 }}>schedule</span>
                       {new Date(item.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
+
+                    <WorkflowBadge workflow={workflowOfSample(item)} />
 
                     {isVerified && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 9999, background: '#ECFDF5', border: '1px solid #A7F3D0', fontFamily: "'DM Sans', sans-serif", fontSize: '0.75rem', fontWeight: 700, color: '#047857' }}>

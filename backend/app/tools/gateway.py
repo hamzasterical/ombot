@@ -16,6 +16,7 @@ from sqlmodel import Session
 from app.audit import log_decision
 from app.config import settings
 from app.db import engine
+from app.meta import get_json
 from app.models import Case, Complaint, Customer
 from app.schemas import NotifyResult, SendReplyResult, TicketResult
 from app.sse import emit
@@ -45,7 +46,13 @@ class ToolGateway(Protocol):
         dashboard_url: str | None = None,
     ) -> TicketResult: ...
     async def send_approved_reply(
-        self, complaint_id: int, reply_text: str, authorization_token: str, recipient_email: str | None = None
+        self,
+        complaint_id: int,
+        reply_text: str,
+        authorization_token: str,
+        recipient_email: str | None = None,
+        reply_to_sender: bool = False,
+        thread: dict | None = None,
     ) -> SendReplyResult: ...
 
 
@@ -148,15 +155,41 @@ class AuditedGateway:
             complaint = s.get(Complaint, case.complaint_id)
             customer = s.get(Customer, complaint.customer_id) if complaint and complaint.customer_id else None
             email = customer.email if customer else ""
+            thread = email_thread(s, case.complaint_id)
         args = {
             "reply_text": reply_text,
             "authorization_token": reply_token(case.complaint_id, reply_text),
             "recipient_email": email or None,
         }
+        if thread and email and thread.get("from_email") == email:
+            args.update(reply_to_sender=True, thread=thread)
         return await self._call(
             "send_approved_reply", case, args, {"text": reply_text},
             action=action, session=session, actor=actor, model=model, evidence=evidence,
         )  # fmt: skip
+
+
+def email_thread(session: Session, complaint_id: int) -> dict | None:
+    """Gmail thread of a complaint that arrived by email (written by app/inbound_email.py)."""
+    return get_json(session, f"email_thread:{complaint_id}")
+
+
+def get_fastn():
+    """The fastn client, or None when fastn is disabled."""
+    if not settings.fastn_enabled:
+        return None
+    from app.meta import dedupe_key
+    from app.tools.fastn_gateway import FastnGateway
+
+    return FastnGateway(
+        settings.fastn_gateway_url,
+        settings.fastn_api_key,
+        settings.fastn_auth_method,
+        settings.fastn_env,
+        settings.fastn_timeout_seconds,
+        settings.fastn_workflow_ids,
+        dedupe_key=dedupe_key,
+    )
 
 
 @contextmanager
@@ -170,18 +203,5 @@ def _session_scope(session: Session | None) -> Iterator[Session]:
 
 
 def get_gateway() -> AuditedGateway:
-    if settings.fastn_enabled:
-        from app.meta import dedupe_key
-        from app.tools.fastn_gateway import FastnGateway
-
-        inner = FastnGateway(
-            settings.fastn_gateway_url,
-            settings.fastn_api_key,
-            settings.fastn_auth_method,
-            settings.fastn_env,
-            settings.fastn_timeout_seconds,
-            settings.fastn_workflow_ids,
-            dedupe_key=dedupe_key,
-        )
-        return AuditedGateway(inner, LocalGateway())
-    return AuditedGateway(LocalGateway(), LocalGateway())
+    inner = get_fastn()
+    return AuditedGateway(inner or LocalGateway(), LocalGateway())

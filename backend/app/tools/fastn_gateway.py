@@ -12,8 +12,9 @@ The workflow sources live in fastn/workflows/ at the repo root.
                          -> {success, sent_via, message_id, error}
     create_ticket        input {complaint_id, category, summary, risk_tier, dashboard_url?}
                          -> {success, ticket_id, ticket_url, error}   (fastn deduplicates)
-    send_approved_reply  input {complaint_id, reply_text, authorization_token, recipient_email?}
-                         -> {success, sent_at, error}
+    send_approved_reply  input {complaint_id, reply_text, authorization_token, recipient_email?,
+                                reply_to_sender?, thread?}  -> {success, sent_at, error}
+    fetch_inbound_emails input {query, max_results?} -> {success, messages, error}   (read-only, intake)
 
 create_ticket and send_approved_reply also get an idempotency_key ("<db instance id>:<complaint_id>",
 see app/meta.py) that the workflows dedupe on, so a re-seeded database whose complaint ids restart
@@ -146,20 +147,29 @@ class FastnGateway:
         )
 
     async def send_approved_reply(
-        self, complaint_id: int, reply_text: str, authorization_token: str, recipient_email: str | None = None
+        self,
+        complaint_id: int,
+        reply_text: str,
+        authorization_token: str,
+        recipient_email: str | None = None,
+        reply_to_sender: bool = False,
+        thread: dict | None = None,
     ) -> SendReplyResult:
-        data = await self._execute(
-            "send_approved_reply",
-            self._with_dedupe(
-                complaint_id,
-                {
-                    "complaint_id": str(complaint_id),
-                    "reply_text": reply_text,
-                    "authorization_token": authorization_token,
-                    "recipient_email": recipient_email,
-                },
-            ),
-        )
+        payload = {
+            "complaint_id": str(complaint_id),
+            "reply_text": reply_text,
+            "authorization_token": authorization_token,
+            "recipient_email": recipient_email,
+        }
+        if reply_to_sender:  # complaint came in by email: answer the sender, in their thread
+            payload.update(reply_to_sender=True, thread=thread)
+        data = await self._execute("send_approved_reply", self._with_dedupe(complaint_id, payload))
         return SendReplyResult(
             success=data.get("success", False), sent_at=data.get("sent_at"), error=data.get("error")
         )
+
+    async def fetch_inbound_emails(self, query: str, max_results: int = 20) -> list[dict]:
+        data = await self._execute("fetch_inbound_emails", {"query": query, "max_results": max_results})
+        if not data.get("success"):
+            raise RuntimeError(f"fetch_inbound_emails failed: {data.get('error')}")
+        return list(data.get("messages") or [])

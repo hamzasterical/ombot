@@ -6,8 +6,8 @@ WORKDIR /build
 COPY ombot_frontend/package.json ombot_frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY ombot_frontend/ ./
-# "false" = the dashboard talks to the real API; "true" = built-in mock data (no backend needed)
-ARG VITE_USE_MOCK=true
+# "false" (default) = the dashboard talks to the real API; "true" = built-in mock data (no backend needed)
+ARG VITE_USE_MOCK=false
 ENV VITE_USE_MOCK=$VITE_USE_MOCK
 RUN npm run build
 

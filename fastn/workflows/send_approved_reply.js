@@ -1,7 +1,12 @@
 // send_approved_reply: email a backend-authorized reply to the customer through Gmail.
-// input  { complaint_id, reply_text, authorization_token, recipient_email?, idempotency_key? }
+// input  { complaint_id, reply_text, authorization_token, recipient_email?, idempotency_key?,
+//          reply_to_sender?, thread? }
 // Deduplicated per (idempotency_key or complaint_id) + exact text, so a retry never emails twice.
 // output { success, sent_at, error }
+//
+// reply_to_sender: the complaint arrived by email from recipient_email, so answer that person directly
+//                  (still requires ombotReplyAllowRealRecipients=true; demo customers keep the override).
+// thread:          { thread_id, message_id, subject } of the customer's email, to reply in the same thread.
 //
 // authorization_token must equal HMAC-SHA256(OMBOT_REPLY_AUTH_SECRET, "<complaint_id>:<sha256hex(reply_text)>"),
 // so only the OmBot backend can authorize a send, and only for this exact text.
@@ -38,7 +43,8 @@ export default async function (ctx) {
 
   const override = await fastn.envConfig.get("ombotReplyOverrideTo");
   const allowReal = String((await fastn.envConfig.get("ombotReplyAllowRealRecipients")) || "") === "true";
-  const to = override || (allowReal ? input.recipient_email : null);
+  const toSender = !!(input.reply_to_sender && allowReal && input.recipient_email);
+  const to = toSender ? input.recipient_email : override || (allowReal ? input.recipient_email : null);
   if (!to) {
     return fail(
       input.recipient_email
@@ -47,10 +53,16 @@ export default async function (ctx) {
     );
   }
 
-  const intro = override && input.recipient_email ? `[Test inbox: intended for ${input.recipient_email}]\n\n` : "";
+  const intro =
+    !toSender && override && input.recipient_email ? `[Test inbox: intended for ${input.recipient_email}]\n\n` : "";
+  const thread = toSender && input.thread && typeof input.thread === "object" ? input.thread : null;
+  const subject = thread?.subject
+    ? /^re:/i.test(thread.subject) ? thread.subject : `Re: ${thread.subject}`
+    : `Update on your complaint #${input.complaint_id}`;
   const raw = [
     `To: ${header(to)}`,
-    `Subject: ${header(`Update on your complaint #${input.complaint_id}`)}`,
+    `Subject: ${header(subject)}`,
+    ...(thread?.message_id ? [`In-Reply-To: ${header(thread.message_id)}`, `References: ${header(thread.message_id)}`] : []),
     "MIME-Version: 1.0",
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: 8bit",
@@ -59,11 +71,14 @@ export default async function (ctx) {
   ].join("\r\n");
 
   try {
-    const res = await fastn.connector.googleGmail.sendMessage({ raw: base64Url(raw) });
+    const res = await fastn.connector.googleGmail.sendMessage({
+      raw: base64Url(raw),
+      ...(thread?.thread_id ? { threadId: String(thread.thread_id) } : {}),
+    });
     if (!res.output?.id) throw new Error(`Gmail did not return a message id: ${JSON.stringify(res.output).slice(0, 300)}`);
     const sent_at = new Date().toISOString();
     await fastn.state.set(dedupeKey, { sent_at, message_id: res.output.id });
-    fastn.loki.info("reply sent", { complaintId: input.complaint_id, messageId: res.output.id, overridden: !!override });
+    fastn.loki.info("reply sent", { complaintId: input.complaint_id, messageId: res.output.id, toSender, overridden: !toSender && !!override });
     return { success: true, sent_at, error: null };
   } catch (err) {
     fastn.loki.error("reply failed", { complaintId: input.complaint_id, error: String(err?.message || err) });

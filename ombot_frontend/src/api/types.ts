@@ -1,6 +1,7 @@
 export type Tier = 'critical' | 'moderate' | 'low'
 
 export type CaseStatus =
+  | 'processing' // stored, the backend is still classifying it and writing the report
   | 'new'
   | 'awaiting_human'
   | 'delegated'
@@ -8,6 +9,9 @@ export type CaseStatus =
   | 'awaiting_approval'
   | 'resolved'
   | 'auto_replied'
+
+// Where a case stands for the team: nobody has acted, someone is working it, or it is closed
+export type Workflow = 'unchecked' | 'investigating' | 'solved'
 
 export interface Category {
   id: string
@@ -43,12 +47,37 @@ export interface ToolTraceStep {
   args: Record<string, unknown> | string
   result: Record<string, unknown> | string
   timestamp: string
+  // Set when a human reviewed this call in a supervised run
+  review?: 'approve' | 'reject' | 'edited'
+}
+
+// How much a supervised agent run pauses: every tool call, only the ones that write, or never
+export type ReviewMode = 'all' | 'risky' | 'auto'
+
+export interface AgentProposal {
+  call_no: number
+  tool: string
+  args: Record<string, unknown>
+}
+
+export interface AgentReviewState {
+  mode: ReviewMode | null // null: no supervised run is active
+  pending: AgentProposal | null
+}
+
+export interface AgentReviewPayload {
+  verdict?: 'approve' | 'reject' | 'abort'
+  callNo?: number
+  note?: string
+  args?: Record<string, unknown>
+  mode?: ReviewMode
 }
 
 export interface ProposedAction {
   type: 'freeze_payment' | 'issue_refund' | 'reply_only'
   details: string | Record<string, unknown>
   requiresApproval: boolean
+  approvalId?: number
 }
 
 export interface Case {
@@ -58,6 +87,7 @@ export interface Case {
   receivedAt: string
   tier: Tier
   status: CaseStatus
+  workflow?: Workflow
   categories: MatchedCategory[]
   unknownCategory: boolean
   report: CaseReport

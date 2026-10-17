@@ -5,6 +5,7 @@ import type { Tier } from '../api/types'
 import { CreateCategoryModal } from '../components/category/CreateCategoryModal'
 import { EmptyState } from '../components/common/EmptyState'
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton'
+import { WorkflowBadge, WorkflowFilter, useWorkflowFilter, workflowOf } from '../components/common/WorkflowBadge'
 
 export const UnknownQueue: React.FC = () => {
   const queryClient = useQueryClient()
@@ -21,6 +22,8 @@ export const UnknownQueue: React.FC = () => {
     queryKey: ['categories'],
     queryFn: () => api.getCategories(),
   })
+
+  const wf = useWorkflowFilter(cases, workflowOf)
 
   const mapMutation = useMutation({
     mutationFn: async ({ caseId, categoryId }: { caseId: string; categoryId: string }) =>
@@ -99,13 +102,17 @@ export const UnknownQueue: React.FC = () => {
         </div>
       )}
 
+      {!isLoading && cases.length > 0 && (
+        <WorkflowFilter selected={wf.selected} counts={wf.counts} onToggle={wf.toggle} onClear={wf.clear} />
+      )}
+
       {isLoading ? (
         <LoadingSkeleton type="card" />
       ) : cases.length === 0 ? (
         <EmptyState title="Unknown Category Queue is Empty" description="All incoming customer complaints have been mapped to established categories." />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {cases.map(c => {
+          {wf.filtered.map(c => {
             const currentSelectedCat = selectedMapping[c.id] || categories[0]?.id || ''
 
             return (
@@ -133,17 +140,20 @@ export const UnknownQueue: React.FC = () => {
                       {c.customerId}
                     </span>
                   </div>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    padding: '2px 10px', borderRadius: 9999,
-                    fontFamily: "'DM Sans', sans-serif", fontSize: '0.75rem', fontWeight: 600,
-                    color: 'var(--color-info)',
-                    background: 'var(--color-info-container)',
-                    border: '1px solid var(--color-info-border)',
-                  }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 13 }}>help</span>
-                    Unmatched Pattern
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <WorkflowBadge workflow={workflowOf(c)} />
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      padding: '2px 10px', borderRadius: 9999,
+                      fontFamily: "'DM Sans', sans-serif", fontSize: '0.75rem', fontWeight: 600,
+                      color: 'var(--color-info)',
+                      background: 'var(--color-info-container)',
+                      border: '1px solid var(--color-info-border)',
+                    }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 13 }}>help</span>
+                      Unmatched Pattern
+                    </span>
+                  </div>
                 </div>
 
                 {/* Complaint text */}

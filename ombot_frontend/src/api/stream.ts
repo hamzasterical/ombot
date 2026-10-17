@@ -36,28 +36,38 @@ export function subscribeToCaseStream(
   onComplete?: () => void
 ): () => void {
   if (!isMockMode) {
-    // Real SSE connection to backend
+    // Real SSE connection to backend. It replays the case's history first, so tool calls are
+    // numbered in the same order as the trace built from the audit log and dedupe by step.
     const eventSource = new EventSource(`/api/cases/${caseId}/stream`)
+    let step = 0
 
-    eventSource.onmessage = (event) => {
+    eventSource.addEventListener('tool_call', (event) => {
       try {
-        const data = JSON.parse(event.data) as ToolTraceStep
-        onStep(data)
+        const { name, args, result, review, ...rest } = JSON.parse((event as MessageEvent).data)
+        step += 1
+        onStep({
+          step,
+          tool: String(name),
+          args: args ?? rest,
+          result: result ?? {},
+          timestamp: new Date().toISOString(),
+          ...(review ? { review } : {}),
+        })
       } catch (err) {
         console.error('Failed to parse SSE payload', err)
       }
-    }
-
-    eventSource.addEventListener('done', () => {
-      eventSource.close()
-      onComplete?.()
     })
 
-    eventSource.onerror = (err) => {
-      console.warn('SSE stream closed or encountered error', err)
+    const finish = () => {
       eventSource.close()
       onComplete?.()
     }
+    eventSource.addEventListener('agent_done', finish)
+    eventSource.addEventListener('error', (event) => {
+      // Named "error" events from the agent carry data; connection errors do not
+      if ((event as MessageEvent).data) console.warn('Agent failed', (event as MessageEvent).data)
+      finish()
+    })
 
     return () => {
       eventSource.close()

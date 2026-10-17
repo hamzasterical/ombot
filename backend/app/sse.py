@@ -15,6 +15,8 @@ EVENT_TYPES = {
     "report_generated",
     "tool_call",
     "agent_step",
+    "step_proposed",
+    "step_reviewed",
     "agent_done",
     "decision",
     "error",

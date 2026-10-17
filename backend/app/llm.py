@@ -11,6 +11,7 @@ import re
 import time
 from dataclasses import dataclass, field
 
+import openai
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 
@@ -29,6 +30,46 @@ class LLMResult[T]:
     usage: dict = field(default_factory=dict)
     latency_ms: int = 0
     error: str | None = None
+
+
+class LLMUnavailable(RuntimeError):
+    """The circuit breaker is open: the provider keeps rate-limiting us, so calls are skipped for a while."""
+
+
+# Circuit breaker (single process, like app/sse.py). Consecutive rate-limit failures open it; any success closes it.
+_breaker = {"failures": 0, "open_until": 0.0}
+
+
+def _is_rate_limit(e: Exception) -> bool:
+    return isinstance(e, (openai.RateLimitError, EmptyResponseError))
+
+
+def breaker_retry_in() -> int:
+    """Seconds until LLM calls resume; 0 when the breaker is closed."""
+    return max(0, int(_breaker["open_until"] - time.monotonic() + 0.999))
+
+
+def unavailable_reason() -> str:
+    return f"LLM unavailable: the provider is rate-limiting requests; retrying in about {breaker_retry_in()}s"
+
+
+def _note_failure(e: Exception) -> None:
+    if not _is_rate_limit(e):
+        return
+    _breaker["failures"] += 1
+    if _breaker["failures"] >= settings.llm_breaker_threshold:
+        _breaker["open_until"] = time.monotonic() + settings.llm_breaker_cooldown_seconds
+        _breaker["failures"] = 0
+        log.warning("LLM circuit breaker open for %ss after repeated rate limits", settings.llm_breaker_cooldown_seconds)
+
+
+def _note_success() -> None:
+    _breaker["failures"] = 0
+
+
+def reset_breaker() -> None:
+    """Test helper."""
+    _breaker.update(failures=0, open_until=0.0)
 
 
 def get_client(model: str) -> AsyncOpenAI:
@@ -89,6 +130,8 @@ async def structured[T: BaseModel](
     in compatibility mode: no response_format, and the system prompt folded into the user message.
     Never raises: on failure returns parsed=None so the caller can route to a human.
     """
+    if breaker_retry_in():  # skip the call entirely; the caller routes the case to a human
+        return LLMResult(None, model, {}, 0, unavailable_reason())
     system = f"{system}\n\nReply with a single JSON object matching this JSON schema:\n" + json.dumps(
         schema.model_json_schema()
     )
@@ -110,12 +153,18 @@ async def structured[T: BaseModel](
             usage = _add_usage(usage, resp)
             content = _message(resp).content or ""
             parsed = schema.model_validate(extract_json(content))
+            _note_success()
             return LLMResult(parsed, model, usage, int((time.monotonic() - start) * 1000))
         except ValueError as e:  # includes pydantic ValidationError
             error = f"invalid output: {e}"
         except Exception as e:  # noqa: BLE001  network, auth, rate limit, unsupported params; never raise
             error = f"{type(e).__name__}: {e}"
             log.warning("LLM call failed (%s, compat=%s): %s", model, compat, error)
+            _note_failure(e)
+            if _is_rate_limit(e):  # retrying in another mode only spends more of a quota that is already exhausted
+                if breaker_retry_in():
+                    error = unavailable_reason()
+                break
             if not compat:
                 compat = True
                 attempts += 1  # switching mode does not use up the retry budget
@@ -139,8 +188,15 @@ class ChatTurn:
 
 async def chat_with_tools(model: str, messages: list[dict], tools: list[dict]) -> ChatTurn:
     """One turn of an OpenAI-style tool-calling conversation. Raises on API errors."""
-    resp = await get_client(model).chat.completions.create(model=model, messages=messages, tools=tools)
-    msg = _message(resp)
+    if breaker_retry_in():
+        raise LLMUnavailable(unavailable_reason())
+    try:
+        resp = await get_client(model).chat.completions.create(model=model, messages=messages, tools=tools)
+        msg = _message(resp)
+    except Exception as e:
+        _note_failure(e)
+        raise
+    _note_success()
     calls: list[ToolCall] = []
     for tc in msg.tool_calls or []:
         fn = getattr(tc, "function", None)

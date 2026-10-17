@@ -34,7 +34,9 @@ def match(cid):
 def submit(client, text):
     r = client.post("/api/complaints", json={"text": text})
     assert r.status_code == 200, r.text
-    return r.json()
+    # The POST returns at once (status "processing"); the test client has run the background work by now
+    assert r.json()["status"] == "processing"
+    return client.get(f"/api/cases/{r.json()['id']}").json()
 
 
 def test_submit_routes_by_registry_tier(client, fake_llm):
@@ -148,3 +150,17 @@ def test_sse_replays_history_and_closes(client, fake_llm):
     for event in ("classify", "evidence_fetch", "report_generated", "agent_done"):
         assert f"event: {event}" in body
     assert client.get("/api/cases/999/stream").status_code == 404
+
+
+def test_workflow_badge_unchecked_investigating_solved(client, fake_llm):
+    fake_llm.cls = match("unauthorized_transaction")
+    case = submit(client, "someone moved my money")
+    assert case["workflow"] == "unchecked"  # nobody has acted on it
+    assert [c["workflow"] for c in client.get("/api/cases").json()] == ["unchecked"]
+
+    client.post(f"/api/cases/{case['id']}/decision", json={"action": "investigate"})
+    assert client.get(f"/api/cases/{case['id']}").json()["workflow"] == "investigating"
+
+    client.patch(f"/api/cases/{case['id']}/draft-reply", json={"text": "We are on it."})
+    r = client.post(f"/api/cases/{case['id']}/decision", json={"action": "resolve", "payload": {"reply": "Done."}})
+    assert r.json()["workflow"] == "solved"

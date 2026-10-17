@@ -91,7 +91,11 @@ def test_demo_learning_loop_end_to_end(client, monkeypatch):
 
     monkeypatch.setattr(llm, "structured", structured)
 
-    first = client.post("/api/complaints", json={"text": "When does the branch on Main Street open?"}).json()
+    def submit(text):
+        posted = client.post("/api/complaints", json={"text": text}).json()
+        return client.get(f"/api/cases/{posted['id']}").json()  # the pipeline finishes in the background
+
+    first = submit("When does the branch on Main Street open?")
     assert (first["tier"], first["status"]) == ("unknown", "awaiting_human")
 
     assert client.post(
@@ -103,6 +107,6 @@ def test_demo_learning_loop_end_to_end(client, monkeypatch):
     ).json()
     assert (mapped["tier"], mapped["status"]) == ("low", "auto_replied")
 
-    second = client.post("/api/complaints", json={"text": "What time does your branch close on Fridays?"}).json()
+    second = submit("What time does your branch close on Fridays?")
     assert (second["tier"], second["status"], second["categories"]) == ("low", "auto_replied", ["branch_hours"])
     assert len(client.get("/api/low-tier/audit-sample?n=5").json()) == 2

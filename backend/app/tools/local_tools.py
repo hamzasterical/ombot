@@ -137,13 +137,33 @@ def get_policy(policy_id: str) -> str | None:
     return path.read_text(encoding="utf-8") if path.is_file() else None
 
 
+_STOPWORDS = {
+    "the", "and", "was", "were", "are", "for", "not", "but", "you", "your", "our", "has", "had",
+    "have", "with", "this", "that", "from", "they", "them", "what", "why", "who", "how", "when",
+    "can", "could", "would", "should", "did", "does", "any", "all", "its", "into", "out", "about",
+    "been", "keeps", "keep", "still", "never", "made", "make", "just", "very",
+}  # fmt: skip
+
+
+def _stems(text: str) -> set[str]:
+    """Crude stems (first 5 letters) so 'crashing' matches 'crashes' and 'charged' matches 'charge'."""
+    return {w[:5] for w in re.findall(r"[a-z]{3,}", text.lower()) if w not in _STOPWORDS}
+
+
 def search_policy(query: str, limit: int = 3) -> list[dict]:
-    """Keyword search across policy files; ranks by number of matching query words."""
-    words = set(re.findall(r"[a-z]{3,}", query.lower()))
+    """Keyword search across policy files.
+
+    Each distinct query word counts once (so long documents don't win by sheer length). A word also
+    found in the title scores +3, and one in the "How customers describe it" line scores +4.
+    """
+    words = _stems(query)
     scored = []
     for path in sorted(POLICY_DIR.glob("*.md")):
         content = path.read_text(encoding="utf-8")
-        score = sum(content.lower().count(w) for w in words)
+        title, body = _stems(content.split("\n", 1)[0]), _stems(content)
+        m = re.search(r"\*\*How customers describe it:\*\*(.*)", content)
+        phrases = _stems(m.group(1)) if m else set()
+        score = sum(3 * (w in title) + 4 * (w in phrases) + (w in body) for w in words)
         if score:
             scored.append((score, {"policy_id": path.stem, "content": content}))
     scored.sort(key=lambda x: -x[0])

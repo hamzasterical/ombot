@@ -5,12 +5,14 @@ from sqlmodel import Session, select
 from sse_starlette.sse import EventSourceResponse
 
 from app import approvals, routing, sse
-from app.agents import low_reply, moderate_agent
+from app.agents import low_reply, moderate_agent, review_gate
 from app.audit import log_decision
 from app.db import get_session
 from app.models import Case, Category, Complaint, Decision, LearningExample
 from app.replies import current_draft, send_reply
 from app.schemas import (
+    AgentReviewCreate,
+    AgentReviewState,
     CaseDetail,
     CaseOut,
     DecisionCreate,
@@ -37,8 +39,28 @@ def _pending(session: Session, case: Case) -> list[PendingApproval]:
     ]
 
 
-def case_out(session: Session, case: Case) -> CaseOut:
+def _touched_ids(session: Session, case_ids: list[int]) -> set[int]:
+    """Cases a human has acted on at least once (any human decision in the audit log)."""
+    if not case_ids:
+        return set()
+    rows = session.exec(
+        select(Decision.case_id).where(Decision.actor == "human", Decision.case_id.in_(case_ids)).distinct()  # type: ignore[attr-defined]
+    )
+    return set(rows)
+
+
+def workflow_of(case: Case, touched: bool) -> str:
+    if case.status in ("resolved", "auto_replied"):
+        return "solved"
+    if touched or case.status in ("agent_running", "awaiting_approval"):
+        return "investigating"
+    return "unchecked"
+
+
+def case_out(session: Session, case: Case, touched: set[int] | None = None) -> CaseOut:
     complaint = session.get(Complaint, case.complaint_id)
+    if touched is None:
+        touched = _touched_ids(session, [case.id])
     return CaseOut(
         id=case.id,
         complaint_id=case.complaint_id,
@@ -54,6 +76,7 @@ def case_out(session: Session, case: Case) -> CaseOut:
         created_at=case.created_at,
         draft_reply=current_draft(case),
         pending_approvals=_pending(session, case),
+        workflow=workflow_of(case, case.id in touched),
     )
 
 
@@ -64,7 +87,9 @@ def _get_case(session: Session, case_id: int) -> Case:
     return case
 
 
-def _start_delegation(session: Session, case: Case, background: BackgroundTasks) -> None:
+def _start_delegation(
+    session: Session, case: Case, background: BackgroundTasks, review_mode: review_gate.Mode = "auto"
+) -> None:
     # Critical cases are never handled by an LLM; only a moderate case waiting on a human can be delegated.
     if case.tier != "moderate" or case.status != "awaiting_human":
         raise HTTPException(409, "only moderate cases awaiting a human can be delegated")
@@ -72,6 +97,8 @@ def _start_delegation(session: Session, case: Case, background: BackgroundTasks)
     case.assigned_layer = 2
     session.add(case)
     session.commit()
+    if review_mode != "auto":  # opened before the task starts so a fast reviewer cannot miss it
+        review_gate.open_gate(case.id, review_mode)
     background.add_task(moderate_agent.run_agent, case.id)
 
 
@@ -88,7 +115,9 @@ def list_cases(
         query = query.where(Case.tier == tier)
     if status:
         query = query.where(Case.status == status)
-    return [case_out(session, c) for c in session.exec(query).all()]
+    cases = session.exec(query).all()
+    touched = _touched_ids(session, [c.id for c in cases])
+    return [case_out(session, c, touched) for c in cases]
 
 
 @router.get("/cases/{case_id}", response_model=CaseDetail)
@@ -118,7 +147,7 @@ async def decide(
         return await _resolve(session, case, body.payload)
 
     if body.action == "delegate":
-        _start_delegation(session, case, background)
+        _start_delegation(session, case, background, _review_mode(body.payload.get("mode")))
     elif body.action == "investigate":
         case.assigned_layer = 1
         case.status = "awaiting_human"
@@ -209,14 +238,50 @@ async def _map_category(session: Session, case: Case, payload: dict) -> None:
         await low_reply.run(session, case)
 
 
+def _review_mode(value: object) -> review_gate.Mode:
+    if value in (None, "", "auto"):
+        return "auto"
+    if value not in ("all", "risky"):
+        raise HTTPException(422, "mode must be auto, risky or all")
+    return value  # type: ignore[return-value]
+
+
 @router.post("/cases/{case_id}/delegate", response_model=CaseOut)
-def delegate(case_id: int, background: BackgroundTasks, session: Session = Depends(get_session)):
+def delegate(
+    case_id: int,
+    background: BackgroundTasks,
+    mode: str = Query("auto", description="auto: agent runs alone; all/risky: reviewer approves its steps"),
+    session: Session = Depends(get_session),
+):
     case = _get_case(session, case_id)
-    _start_delegation(session, case, background)
-    log_decision(session, case.id, actor="human", action="delegate")
+    review_mode = _review_mode(mode)
+    _start_delegation(session, case, background, review_mode)
+    log_decision(session, case.id, actor="human", action="delegate", payload={"mode": review_mode})
     sse.emit(case.id, "decision", {"action": "delegate", "status": case.status})
     session.refresh(case)
     return case_out(session, case)
+
+
+@router.get("/cases/{case_id}/agent/review", response_model=AgentReviewState)
+def agent_review_state(case_id: int, session: Session = Depends(get_session)):
+    _get_case(session, case_id)
+    return AgentReviewState(mode=review_gate.mode(case_id), pending=review_gate.pending(case_id))
+
+
+@router.post("/cases/{case_id}/agent/review", response_model=AgentReviewState)
+def agent_review(case_id: int, body: AgentReviewCreate, session: Session = Depends(get_session)):
+    """Answer the step a supervised agent is waiting on, and/or change how much it pauses."""
+    _get_case(session, case_id)
+    if body.verdict and body.call_no is None:
+        raise HTTPException(422, "call_no is required with a verdict")
+    review = (
+        review_gate.Review(body.verdict, body.note, body.args) if body.verdict else None
+    )
+    try:
+        review_gate.submit(case_id, body.call_no, review, body.mode)
+    except review_gate.ReviewError as e:
+        raise HTTPException(409, str(e)) from e
+    return AgentReviewState(mode=review_gate.mode(case_id), pending=review_gate.pending(case_id))
 
 
 @router.get("/cases/{case_id}/stream")

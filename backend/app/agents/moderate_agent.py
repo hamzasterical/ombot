@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app import approvals, llm
+from app.agents import review_gate
 from app.audit import log_decision
 from app.config import settings
 from app.db import engine
@@ -84,6 +85,7 @@ class _State:
     def __init__(self) -> None:
         self.draft: str | None = None
         self.proposals: list[dict] = []
+        self.calls = 0  # tool calls so far; numbers the steps a reviewer sees
 
 
 def _execute_tool(session: Session, case: Case, state: _State, name: str, args: dict) -> dict:
@@ -136,7 +138,12 @@ async def _loop(session: Session, case: Case, complaint: Complaint, state: _Stat
         {"role": "user", "content": _context(session, case, complaint)},
     ]
     for step in range(1, settings.agent_max_steps + 1):
-        turn = await llm.chat_with_tools(settings.agent_model, messages, TOOL_DEFS)
+        try:  # one slow turn is cut off; a run that keeps making progress is not
+            turn = await asyncio.wait_for(
+                llm.chat_with_tools(settings.agent_model, messages, TOOL_DEFS), timeout=settings.agent_timeout_seconds
+            )
+        except TimeoutError:
+            raise TimeoutError(f"no answer from the model within {settings.agent_timeout_seconds}s on step {step}") from None
         log_decision(
             session, case.id, "agent", "agent_step", {"step": step}, {"usage": turn.usage}, settings.agent_model
         )
@@ -145,12 +152,41 @@ async def _loop(session: Session, case: Case, complaint: Complaint, state: _Stat
 
         if turn.tool_calls:
             for call in turn.tool_calls:
-                result = _execute_tool(session, case, state, call.name, call.arguments)
+                state.calls += 1
+                args = call.arguments
+                review: str | None = None
+                result: dict | None = None
+                if review_gate.needs_review(case.id, call.name):
+                    emit(case.id, "step_proposed", {
+                        "call_no": state.calls, "tool": call.name, "args": args, "mode": review_gate.mode(case.id),
+                    })
+                    answer = await review_gate.wait_for_review(case.id, state.calls, call.name, args)
+                    log_decision(
+                        session, case.id, "human", "step_review",
+                        {"call_no": state.calls, "tool": call.name, "verdict": answer.verdict, "note": answer.note,
+                         "edited_args": answer.args},
+                    )
+                    emit(case.id, "step_reviewed", {"call_no": state.calls, "verdict": answer.verdict})
+                    if answer.verdict == "abort":
+                        raise review_gate.RunAborted("reviewer stopped the agent run")
+                    review = answer.verdict
+                    if answer.verdict == "reject":
+                        result = {
+                            "status": "rejected_by_reviewer",
+                            "reviewer_note": answer.note or "no reason given",
+                            "instruction": "This call was not executed. Do not repeat it; change your approach.",
+                        }
+                    elif answer.args is not None:
+                        args, review = answer.args, "edited"
+                if result is None:
+                    result = _execute_tool(session, case, state, call.name, args)
                 log_decision(
-                    session, case.id, "agent", "tool_call", {"name": call.name, "args": call.arguments},
+                    session, case.id, "agent", "tool_call", {"name": call.name, "args": args},
                     {"result": result}, settings.agent_model,
                 )
-                emit(case.id, "tool_call", {"name": call.name, "args": call.arguments, "result": result})
+                emit(case.id, "tool_call", {
+                    "name": call.name, "args": args, "result": result, **({"review": review} if review else {}),
+                })
                 messages.append(
                     {"role": "tool", "tool_call_id": call.id, "content": json.dumps(result, default=str)}
                 )
@@ -164,11 +200,21 @@ async def _loop(session: Session, case: Case, complaint: Complaint, state: _Stat
 
 
 async def run_agent(case_id: int, session: Session | None = None) -> None:
-    """Run the delegated agent for a case. Always ends with agent_done or error."""
+    """Run the delegated agent for a case. Always ends with agent_done or error.
+
+    There is no cap on the whole run: each model turn has its own timeout (agent_timeout_seconds), the loop is
+    bounded by agent_max_steps, and a supervised run's waits on the reviewer have their own idle timeout.
+    """
     if session is None:
         with Session(engine) as own:
             return await run_agent(case_id, own)
+    try:
+        await _run(case_id, session)
+    finally:
+        review_gate.close_gate(case_id)
 
+
+async def _run(case_id: int, session: Session) -> None:
     case = session.get(Case, case_id)
     if case is None or case.tier != "moderate" or case.status != "agent_running":
         return
@@ -176,9 +222,7 @@ async def run_agent(case_id: int, session: Session | None = None) -> None:
     state = _State()
 
     try:
-        result = await asyncio.wait_for(
-            _loop(session, case, complaint, state), timeout=settings.agent_timeout_seconds
-        )
+        result = await _loop(session, case, complaint, state)
     except Exception as e:  # noqa: BLE001  timeout, API error: a human takes over
         log_decision(session, case.id, "system", "agent_failed", {"error": f"{type(e).__name__}: {e}"})
         case.status = "awaiting_human"

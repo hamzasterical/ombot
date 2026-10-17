@@ -12,6 +12,15 @@ def offline_gateway(monkeypatch):
     monkeypatch.setattr(settings, "fastn_enabled", False)
 
 
+@pytest.fixture(autouse=True)
+def closed_breaker():
+    from app import llm
+
+    llm.reset_breaker()
+    yield
+    llm.reset_breaker()
+
+
 @pytest.fixture
 def session():
     engine = create_engine(
@@ -42,14 +51,21 @@ def case(session):
 
 
 @pytest.fixture
-def client(session):
+def client(session, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from app import sse
+    from app import pipeline, sse
     from app.db import get_session
     from app.main import app
 
     sse.reset()
-    app.dependency_overrides[get_session] = lambda: session
+    # Background work opens its own session; point it at the test database
+    monkeypatch.setattr(pipeline, "engine", session.get_bind())
+
+    def fresh_session():
+        session.expire_all()  # the background task wrote through another session
+        return session
+
+    app.dependency_overrides[get_session] = fresh_session
     yield TestClient(app)  # no `with`: skips the lifespan so the real DB file is untouched
     app.dependency_overrides.clear()

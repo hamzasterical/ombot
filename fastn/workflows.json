@@ -38,9 +38,29 @@
         "reply_text": { "type": "string" },
         "authorization_token": { "type": "string" },
         "recipient_email": { "type": ["string", "null"] },
-        "idempotency_key": { "type": ["string", "null"] }
+        "idempotency_key": { "type": ["string", "null"] },
+        "reply_to_sender": { "type": ["boolean", "null"] },
+        "thread": {
+          "type": ["object", "null"],
+          "properties": {
+            "thread_id": { "type": ["string", "null"] },
+            "message_id": { "type": ["string", "null"] },
+            "subject": { "type": ["string", "null"] }
+          }
+        }
       },
       "required": ["complaint_id", "reply_text", "authorization_token"]
+    }
+  },
+  "fetch_inbound_emails": {
+    "id": "wf_e6bd6c39faaa",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": { "type": "string" },
+        "max_results": { "type": ["integer", "null"] }
+      },
+      "required": ["query"]
     }
   }
 }

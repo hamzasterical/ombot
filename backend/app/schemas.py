@@ -22,11 +22,12 @@ class ClassificationResult(BaseModel):
 
 class ReportResult(BaseModel):
     summary: str
-    category: str
+    # Free models sometimes omit these two; report.generate backfills them instead of failing the report
+    category: str = ""
     likely_causes: list[str] = Field(default_factory=list)
     policy_references: list[str] = Field(default_factory=list)
     evidence: dict[str, Any] = Field(default_factory=dict)
-    recommended_next_step: str
+    recommended_next_step: str = ""
 
 
 # ---- API -----------------------------------------------------------------
@@ -61,12 +62,29 @@ class CaseOut(BaseModel):
     created_at: datetime
     draft_reply: str | None = None  # human-edited draft, else the agent's
     pending_approvals: list[PendingApproval] = Field(default_factory=list)
+    # unchecked: nobody has acted on it; investigating: a person or the agent is working it; solved: replied/closed
+    workflow: Literal["unchecked", "investigating", "solved"] = "unchecked"
 
 
 class DecisionCreate(BaseModel):
     # resolve: a human sends payload["reply"] (or the current draft) to the customer and closes the case
     action: Literal["approve", "reject", "investigate", "delegate", "map_category", "resolve"]
     payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentReviewCreate(BaseModel):
+    """A reviewer's answer to the step a supervised agent is waiting on, and/or a pause-level change."""
+
+    verdict: Literal["approve", "reject", "abort"] | None = None
+    call_no: int | None = None
+    note: str | None = Field(default=None, max_length=1000)
+    args: dict[str, Any] | None = None  # edited arguments for an approved call
+    mode: Literal["all", "risky", "auto"] | None = None
+
+
+class AgentReviewState(BaseModel):
+    mode: Literal["all", "risky", "auto"] | None = None  # None: no supervised run is active
+    pending: dict[str, Any] | None = None
 
 
 class DraftReplyUpdate(BaseModel):

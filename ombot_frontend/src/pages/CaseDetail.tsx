@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { subscribeToCaseStream } from '../api/stream'
@@ -8,14 +8,18 @@ import { TierBadge } from '../components/common/TierBadge'
 import { StatusPill } from '../components/common/StatusPill'
 import { ReportView } from '../components/case/ReportView'
 import { ToolTraceTimeline } from '../components/case/ToolTraceTimeline'
+import { SupervisedReview } from '../components/case/SupervisedReview'
+import { CaseTabs, type CaseTab } from '../components/case/CaseTabs'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton'
+import { WorkflowBadge, workflowOf } from '../components/common/WorkflowBadge'
 // Using Material Symbols (loaded via index.html) for icons in this page
 
 export const CaseDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   // State
   const [draftReplyText, setDraftReplyText] = useState('')
@@ -34,6 +38,7 @@ export const CaseDetail: React.FC = () => {
     queryKey: ['case', id],
     queryFn: () => api.getCaseById(id || ''),
     enabled: !!id,
+    refetchInterval: (query) => (query.state.data?.status === 'processing' ? 2000 : false),
   })
 
   // Fetch Decisions for bottom audit history
@@ -56,6 +61,31 @@ export const CaseDetail: React.FC = () => {
       }
     }
   }, [caseData])
+
+  // While the moderate agent works, follow its tool calls live and reload the case when it ends
+  const agentRunning = caseData?.status === 'agent_running'
+  useEffect(() => {
+    if (!id || !agentRunning) return
+    setIsStreaming(true)
+    return subscribeToCaseStream(
+      id,
+      (newStep) => setLiveTrace((prev) => (prev.some((s) => s.step === newStep.step) ? prev : [...prev, newStep])),
+      () => {
+        setIsStreaming(false)
+        queryClient.invalidateQueries({ queryKey: ['case', id] })
+        queryClient.invalidateQueries({ queryKey: ['cases'] })
+        queryClient.invalidateQueries({ queryKey: ['audit'] })
+      }
+    )
+  }, [id, agentRunning, queryClient])
+
+  // Shared with the Supervised Run tab (same query key), so the tab can flag a step waiting for review
+  const { data: agentReview } = useQuery({
+    queryKey: ['agent-review', id],
+    queryFn: () => api.getAgentReview(id || ''),
+    enabled: !!id && agentRunning,
+    refetchInterval: agentRunning ? 1500 : false,
+  })
 
   // Mutation for decisions
   const decisionMutation = useMutation({
@@ -90,25 +120,30 @@ export const CaseDetail: React.FC = () => {
     },
   })
 
-  // Trigger live SSE tool trace simulation
-  const handleStartStreamSimulation = () => {
-    if (!id) return
-    setIsStreaming(true)
-    const unsubscribe = subscribeToCaseStream(
-      id,
-      (newStep) => {
-        setLiveTrace((prev) => {
-          const exists = prev.some((s) => s.step === newStep.step)
-          if (exists) return prev
-          return [...prev, newStep]
-        })
-      },
-      () => {
-        setIsStreaming(false)
-      }
-    )
-    return () => unsubscribe()
-  }
+  // Tabs: the agent tabs only exist for moderate cases, the only tier an agent may work on
+  const isModerate = caseData?.tier === 'moderate' && !caseData.unknownCategory
+  const canDelegate = isModerate && caseData?.status === 'awaiting_human'
+  const awaitingReview = !!agentReview?.pending
+  const tabs: CaseTab[] = [
+    { id: 'overview', label: 'Overview', icon: 'description' },
+    ...(isModerate
+      ? [
+          { id: 'agent', label: 'Agent Trace', icon: 'terminal', count: liveTrace.length },
+          { id: 'supervised', label: 'Supervised Run', icon: 'fact_check', attention: awaitingReview },
+        ]
+      : []),
+    {
+      id: 'resolution',
+      label: 'Resolution',
+      icon: 'gavel',
+      attention: caseData?.status === 'awaiting_approval' || (caseData?.status === 'awaiting_human' && !isModerate),
+    },
+    { id: 'audit', label: 'Audit Trail', icon: 'history', count: caseDecisions.length },
+  ]
+  const defaultTab = caseData?.status === 'awaiting_approval' ? 'resolution' : agentRunning ? 'agent' : 'overview'
+  const requestedTab = searchParams.get('tab')
+  const tab = tabs.some((t) => t.id === requestedTab) ? (requestedTab as string) : defaultTab
+  const selectTab = (next: string) => setSearchParams({ tab: next }, { replace: true })
 
   // Handle Approve button click
   const handleApproveClick = () => {
@@ -191,6 +226,7 @@ export const CaseDetail: React.FC = () => {
                 {caseData.id}
               </h1>
               <TierBadge tier={caseData.unknownCategory ? 'unknown' : caseData.tier} size="md" />
+              <WorkflowBadge workflow={workflowOf(caseData)} size="md" />
               <StatusPill status={caseData.status} />
             </div>
             <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.8125rem', color: 'var(--color-tertiary)', margin: 0, marginTop: 2 }}>
@@ -200,6 +236,18 @@ export const CaseDetail: React.FC = () => {
           </div>
         </div>
 
+        {workflowOf(caseData) === 'unchecked' && (
+          <button
+            type="button"
+            onClick={() => decisionMutation.mutate({ action: 'investigate' })}
+            disabled={decisionMutation.isPending}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 40, padding: '0 1rem', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', background: 'var(--color-on-tertiary-container)', color: '#FFF', fontFamily: "'DM Sans', sans-serif", fontSize: '0.8125rem', fontWeight: 700, opacity: decisionMutation.isPending ? 0.5 : 1 }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>manage_search</span>
+            Start investigation
+          </button>
+        )}
+
         {caseData.status === 'resolved' && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0.5rem 0.875rem', borderRadius: '0.5rem', background: 'var(--color-tertiary-container)', border: '1px solid #A7F3D0', fontFamily: "'DM Sans', sans-serif", fontSize: '0.8125rem', fontWeight: 700, color: '#047857' }}>
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check_circle</span>
@@ -208,9 +256,12 @@ export const CaseDetail: React.FC = () => {
         )}
       </div>
 
-      {/* Two Column Layout */}
+      <CaseTabs tabs={tabs} active={tab} onChange={selectTab} />
+
+      {/* OVERVIEW: what the customer said and what the system concluded */}
+      {tab === 'overview' && (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 520px), 1fr))', gap: '1.5rem', alignItems: 'start' }}>
-        {/* LEFT COLUMN: Complaint, Matched Categories, Report */}
+        {/* LEFT COLUMN: Complaint, Matched Categories */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Original Complaint Card */}
           <div style={{ background: 'var(--color-surface-bright)', border: '1px solid var(--color-outline)', borderRadius: '0.75rem', padding: '1.25rem', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
@@ -255,17 +306,56 @@ export const CaseDetail: React.FC = () => {
             </div>
           </div>
 
-          <ReportView report={caseData.report} />
         </div>
 
-        {/* RIGHT COLUMN: Tool-Call Trace, Proposed Action, Draft Reply, Decisions */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Live Tool-Call Trace Timeline */}
+        {/* RIGHT COLUMN: Report */}
+        <div>
+          <ReportView report={caseData.report} />
+        </div>
+      </div>
+      )}
+
+      {/* AGENT TRACE: every tool call the agent made; "Let the agent handle it" starts an unsupervised run */}
+      {tab === 'agent' && (
+        <div style={{ maxWidth: 900 }}>
           <ToolTraceTimeline
             trace={liveTrace}
             isStreaming={isStreaming}
-            onTriggerSimulate={handleStartStreamSimulation}
+            action={
+              canDelegate
+                ? {
+                    label: 'Let the agent handle it',
+                    icon: 'smart_toy',
+                    disabled: decisionMutation.isPending,
+                    onClick: () => decisionMutation.mutate({ action: 'delegate' }),
+                  }
+                : undefined
+            }
           />
+          {decisionMutation.error && (
+            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.8125rem', color: 'var(--color-error)' }}>
+              {decisionMutation.error.message}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* SUPERVISED RUN: approve, reject or edit each agent step */}
+      {tab === 'supervised' && (
+        <div style={{ maxWidth: 900 }}>
+          <SupervisedReview
+            caseId={caseData.id}
+            tier={caseData.tier}
+            status={caseData.status}
+            trace={liveTrace}
+            onOpenTrace={() => selectTab('agent')}
+          />
+        </div>
+      )}
+
+      {/* RESOLUTION: proposed action, reply and the final human decision */}
+      {tab === 'resolution' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: 820 }}>
 
           {/* Proposed Resolution & Action Card */}
           {caseData.proposedAction && (
@@ -366,12 +456,18 @@ export const CaseDetail: React.FC = () => {
                   Reject
                 </button>
               </div>
+              {(decisionMutation.error || replyMutation.error) && (
+                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.8125rem', color: 'var(--color-error)', margin: 0 }}>
+                  {(decisionMutation.error || replyMutation.error)?.message}
+                </p>
+              )}
             </div>
           )}
         </div>
-      </div>
+      )}
 
-      {/* BOTTOM SECTION: Decision History */}
+      {/* AUDIT: who did what on this case */}
+      {tab === 'audit' && (
       <div style={{ background: 'var(--color-surface-bright)', border: '1px solid var(--color-outline)', borderRadius: '0.75rem', padding: '1.25rem', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', paddingBottom: '0.875rem', borderBottom: '1px solid var(--color-outline-variant)' }}>
           <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'var(--color-secondary)' }}>history</span>
@@ -408,6 +504,7 @@ export const CaseDetail: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Confirmation Dialog for Money-Moving Actions */}
       <ConfirmDialog

@@ -54,3 +54,15 @@ async def test_generate_failure_marks_human(session, case, monkeypatch):
     monkeypatch.setattr(llm, "structured", fake)
     assert await report.generate(session, case, "x", ClassificationResult(), {}) is None
     assert case.status == "awaiting_human" and case.report["error"] == "bad"
+
+
+async def test_generate_backfills_fields_a_free_model_omitted(session, case, monkeypatch):
+    async def fake(*a, **k):
+        return llm.LLMResult(ReportResult.model_validate({"summary": "s"}), "m")
+
+    monkeypatch.setattr(llm, "structured", fake)
+    cls = ClassificationResult(
+        categories=[CategoryMatch(category_id="fees_and_charges_question", confidence=0.9, supporting_quote="q")]
+    )
+    out = await report.generate(session, case, "why this fee", cls, {})
+    assert out.category == "fees_and_charges_question" and out.recommended_next_step

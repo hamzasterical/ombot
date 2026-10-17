@@ -121,13 +121,26 @@ async def generate(
     result = await llm.structured(settings.report_model, SYSTEM, user, ReportResult)
 
     if result.parsed is None:
-        case.report = {"error": result.error, "summary": "Report generation failed; manual review needed."}
+        unavailable = (result.error or "").startswith("LLM unavailable")
+        case.report = {
+            "error": result.error,
+            "llm_unavailable": unavailable,
+            "summary": (
+                "LLM unavailable (rate limit reached): no AI analysis was done. Review this case manually."
+                if unavailable
+                else "Report generation failed; manual review needed."
+            ),
+        }
         case.status = "awaiting_human"
         report = None
     else:
         report = result.parsed
         report.evidence = evidence  # facts come from the DB, never from the LLM
         report.policy_references = list(policies) or report.policy_references
+        report.category = report.category or (matches[0].category_id if matches else "unknown")
+        report.recommended_next_step = report.recommended_next_step or (
+            "Review the case against the referenced policy and decide the next step."
+        )
         case.report = report.model_dump()
     session.add(case)
     session.commit()

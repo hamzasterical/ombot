@@ -5,6 +5,7 @@ import { api } from '../api/client'
 import { TierBadge } from '../components/common/TierBadge'
 import { EmptyState } from '../components/common/EmptyState'
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton'
+import { WorkflowBadge, WorkflowFilter, useWorkflowFilter, workflowOf } from '../components/common/WorkflowBadge'
 
 export const ModerateQueue: React.FC = () => {
   const navigate = useNavigate()
@@ -16,6 +17,8 @@ export const ModerateQueue: React.FC = () => {
     queryFn: () => api.getCases('moderate'),
     refetchInterval: 5000,
   })
+
+  const wf = useWorkflowFilter(cases, workflowOf)
 
   const decisionMutation = useMutation({
     mutationFn: async ({ caseId, action }: { caseId: string; action: 'investigate' | 'delegate' }) => {
@@ -73,13 +76,19 @@ export const ModerateQueue: React.FC = () => {
         </div>
       )}
 
+      {!isLoading && cases.length > 0 && (
+        <WorkflowFilter selected={wf.selected} counts={wf.counts} onToggle={wf.toggle} onClear={wf.clear} />
+      )}
+
       {isLoading ? (
         <LoadingSkeleton type="card" />
       ) : cases.length === 0 ? (
         <EmptyState title="No complaints in moderate queue" />
+      ) : wf.filtered.length === 0 ? (
+        <EmptyState title="No cases in the selected states" description="Pick another state or choose All." />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {cases.map(c => {
+          {wf.filtered.map(c => {
             const primaryCategoryName = c.categories[0]?.categoryName || c.categories[0]?.categoryId || 'Moderate Risk Issue'
             const isDelegatedOrRunning = c.status === 'delegated' || c.status === 'agent_running'
 
@@ -100,7 +109,10 @@ export const ModerateQueue: React.FC = () => {
                     <span style={{ width: 1, height: 16, background: 'var(--color-outline)' }} />
                     <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9375rem', fontWeight: 700, color: 'var(--color-on-surface)' }}>{primaryCategoryName}</span>
                   </div>
-                  <TierBadge tier={c.tier} size="md" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <WorkflowBadge workflow={workflowOf(c)} />
+                    <TierBadge tier={c.tier} size="md" />
+                  </div>
                 </div>
 
                 {/* Report summary */}
@@ -121,7 +133,7 @@ export const ModerateQueue: React.FC = () => {
                       onClick={() => navigate(`/cases/${c.id}`)}
                       style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.8125rem', fontWeight: 700, color: '#4338CA', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
                     >
-                      Watch Live Tool Trace
+                      Open live run
                       <span className="material-symbols-outlined" style={{ fontSize: 14 }}>open_in_new</span>
                     </button>
                   </div>
@@ -142,6 +154,16 @@ export const ModerateQueue: React.FC = () => {
                   <button
                     type="button"
                     disabled={activeActionId === c.id || isDelegatedOrRunning}
+                    onClick={() => navigate(`/cases/${c.id}?tab=supervised`)}
+                    className="btn-secondary"
+                    style={{ opacity: (activeActionId === c.id || isDelegatedOrRunning) ? 0.5 : 1 }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>fact_check</span>
+                    Run agent with my review
+                  </button>
+                  <button
+                    type="button"
+                    disabled={activeActionId === c.id || isDelegatedOrRunning}
                     onClick={() => decisionMutation.mutate({ caseId: c.id, action: 'delegate' })}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
@@ -153,7 +175,7 @@ export const ModerateQueue: React.FC = () => {
                     }}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: 16 }}>smart_toy</span>
-                    {isDelegatedOrRunning ? 'Delegated to AI' : 'Delegate to AI agent'}
+                    {isDelegatedOrRunning ? 'Delegated to AI' : 'Let the agent handle it'}
                   </button>
                 </div>
               </div>

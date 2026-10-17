@@ -33,7 +33,13 @@ class LocalGateway:
         return TicketResult(success=True, ticket_id=f"MOCK-{complaint_id}")
 
     async def send_approved_reply(
-        self, complaint_id: int, reply_text: str, authorization_token: str, recipient_email: str | None = None
+        self,
+        complaint_id: int,
+        reply_text: str,
+        authorization_token: str,
+        recipient_email: str | None = None,
+        reply_to_sender: bool = False,
+        thread: dict | None = None,
     ) -> SendReplyResult:
         log.info("[MOCK] reply to %s for complaint %s", recipient_email or "<no email on file>", complaint_id)
         return SendReplyResult(success=True, sent_at=datetime.now(UTC))

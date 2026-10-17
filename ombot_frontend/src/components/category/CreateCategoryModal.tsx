@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import type { Tier } from '../../api/types'
-import { Sparkles, X, BookOpen, AlertCircle } from 'lucide-react'
 
 interface CreateCategoryModalProps {
   isOpen: boolean
@@ -51,45 +50,44 @@ export const CreateCategoryModal: React.FC<CreateCategoryModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+      <div className="relative w-full max-w-lg rounded-2xl bg-surface-container-lowest p-6 shadow-2xl border border-outline-variant/30">
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+          className="absolute right-4 top-4 rounded-lg p-1.5 text-secondary hover:bg-surface-container hover:text-on-surface transition"
         >
-          <X size={20} />
+          <span className="material-symbols-outlined text-[20px]">close</span>
         </button>
 
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
-            <Sparkles size={20} />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-fixed/40 text-primary">
+            <span className="material-symbols-outlined text-[20px]">add_circle</span>
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Create New Category</h3>
-            {caseId && <p className="text-xs text-slate-500">Mapping complaint case: {caseId}</p>}
+            <h3 className="text-base font-bold text-on-surface font-headline-sm">Create Taxonomy Category</h3>
+            {caseId && <p className="text-xs text-secondary font-mono-data">Mapping complaint: #{caseId}</p>}
           </div>
         </div>
 
         {/* Note that this teaches the system */}
-        <div className="mb-4 rounded-xl border border-purple-200 bg-purple-50 p-3 text-xs text-purple-900 flex items-start gap-2.5">
-          <BookOpen size={16} className="text-purple-600 shrink-0 mt-0.5" />
+        <div className="mb-4 rounded-xl border border-primary/20 bg-primary-fixed/20 p-3 text-xs text-on-surface flex items-start gap-2.5">
+          <span className="material-symbols-outlined text-[18px] text-primary shrink-0 mt-0.5">school</span>
           <div className="leading-relaxed">
-            <span className="font-semibold block">Continuous Learning Loop Active</span>
-            Creating a category registers a new node in the classification taxonomy and updates
-            future few-shot embeddings. This teaches the AI triage model how to classify similar complaints automatically.
+            <span className="font-semibold block text-primary font-headline-sm">Active Learning Pipeline</span>
+            Registering a category expands the few-shot vector classification bank so the triage engine can categorize future disputes automatically.
           </div>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-700 flex items-center gap-2">
-            <AlertCircle size={14} />
+          <div className="mb-4 rounded-lg border border-error/30 bg-error-container/40 p-2.5 text-xs text-error flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px]">error</span>
             <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Category Name *
+            <label className="block text-xs font-semibold text-secondary mb-1">
+              Category Identifier / Name *
             </label>
             <input
               type="text"
@@ -99,20 +97,20 @@ export const CreateCategoryModal: React.FC<CreateCategoryModalProps> = ({
                 setError('')
               }}
               placeholder="e.g., Cryptocoin Gateway Failure, ESG Impact Tracker..."
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs text-slate-900 focus:bg-white focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              className="w-full rounded-xl border border-outline-variant/40 bg-surface-container-low p-2.5 text-xs text-on-surface focus:bg-surface-container-lowest focus:border-primary focus:outline-none transition-colors"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-secondary mb-1">
               Risk Tier Assignment *
             </label>
             <div className="grid grid-cols-3 gap-2">
               <label
                 className={`flex cursor-pointer flex-col rounded-xl border p-2.5 text-center transition ${
                   tier === 'critical'
-                    ? 'border-red-500 bg-red-50/80 text-red-900 font-bold'
-                    : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
+                    ? 'border-error bg-error-container text-on-error-container font-bold'
+                    : 'border-outline-variant/30 bg-surface-container-low hover:bg-surface-container text-on-surface-variant text-xs'
                 }`}
               >
                 <input
@@ -123,15 +121,15 @@ export const CreateCategoryModal: React.FC<CreateCategoryModalProps> = ({
                   onChange={() => setTier('critical')}
                   className="sr-only"
                 />
-                <span className="text-xs">Critical</span>
-                <span className="text-[10px] text-slate-500 font-normal mt-0.5">Human only</span>
+                <span className="text-xs font-semibold">Critical</span>
+                <span className="text-[10px] opacity-75 font-normal mt-0.5">Human review only</span>
               </label>
 
               <label
                 className={`flex cursor-pointer flex-col rounded-xl border p-2.5 text-center transition ${
                   tier === 'moderate'
-                    ? 'border-amber-500 bg-amber-50/80 text-amber-900 font-bold'
-                    : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
+                    ? 'border-amber-400 bg-amber-100 text-amber-900 font-bold'
+                    : 'border-outline-variant/30 bg-surface-container-low hover:bg-surface-container text-on-surface-variant text-xs'
                 }`}
               >
                 <input
@@ -142,15 +140,15 @@ export const CreateCategoryModal: React.FC<CreateCategoryModalProps> = ({
                   onChange={() => setTier('moderate')}
                   className="sr-only"
                 />
-                <span className="text-xs">Moderate</span>
-                <span className="text-[10px] text-slate-500 font-normal mt-0.5">Human/AI choice</span>
+                <span className="text-xs font-semibold">Moderate</span>
+                <span className="text-[10px] opacity-75 font-normal mt-0.5">Dual-lane signoff</span>
               </label>
 
               <label
                 className={`flex cursor-pointer flex-col rounded-xl border p-2.5 text-center transition ${
                   tier === 'low'
-                    ? 'border-emerald-500 bg-emerald-50/80 text-emerald-900 font-bold'
-                    : 'border-slate-200 hover:bg-slate-50 text-slate-700 text-xs'
+                    ? 'border-emerald-400 bg-emerald-100 text-emerald-900 font-bold'
+                    : 'border-outline-variant/30 bg-surface-container-low hover:bg-surface-container text-on-surface-variant text-xs'
                 }`}
               >
                 <input
@@ -161,15 +159,15 @@ export const CreateCategoryModal: React.FC<CreateCategoryModalProps> = ({
                   onChange={() => setTier('low')}
                   className="sr-only"
                 />
-                <span className="text-xs">Low</span>
-                <span className="text-[10px] text-slate-500 font-normal mt-0.5">Automated AI</span>
+                <span className="text-xs font-semibold">Low</span>
+                <span className="text-[10px] opacity-75 font-normal mt-0.5">Automated AI</span>
               </label>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Description & Classification Criteria *
+            <label className="block text-xs font-semibold text-secondary mb-1">
+              Trigger Scope & Description *
             </label>
             <textarea
               rows={3}
@@ -178,8 +176,8 @@ export const CreateCategoryModal: React.FC<CreateCategoryModalProps> = ({
                 setDescription(e.target.value)
                 setError('')
               }}
-              placeholder="Describe trigger conditions, patterns, and scenarios that belong in this category..."
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs text-slate-900 focus:bg-white focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              placeholder="Describe trigger conditions, keywords, patterns, and scenarios that belong in this category..."
+              className="w-full rounded-xl border border-outline-variant/40 bg-surface-container-low p-2.5 text-xs text-on-surface focus:bg-surface-container-lowest focus:border-primary focus:outline-none transition-colors"
             />
           </div>
 
@@ -187,13 +185,13 @@ export const CreateCategoryModal: React.FC<CreateCategoryModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+              className="rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-4 py-2 text-xs font-semibold text-secondary hover:bg-surface-container-low transition"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="rounded-xl bg-purple-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-purple-700 transition"
+              className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-on-primary shadow-xs hover:opacity-90 transition-opacity"
             >
               Save & Register Category
             </button>

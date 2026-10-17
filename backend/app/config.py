@@ -27,13 +27,27 @@ class Settings(BaseSettings):
     dashboard_url: str = ""  # optional base URL of the dashboard; ticket links to {url}/cases/<id>
     reply_auth_secret: str = ""  # shared with the fastn send_approved_reply workflow to verify tokens
 
+    # Email intake: poll the bank's Gmail inbox (via the fastn fetch_inbound_emails workflow)
+    inbound_email_enabled: bool = False  # needs fastn_enabled too
+    bank_inbox_email: str = ""  # the inbox customers write to; mail from it is never ingested
+    inbound_poll_seconds: int = 60
+    # Only mail received after this ISO time is ingested; empty = from the first poll onwards
+    inbound_email_since: str = ""
+    inbound_gmail_query: str = (
+        "in:inbox -from:me -category:promotions -category:social -category:updates -category:forums"
+    )
+
     # App
     database_url: str = "sqlite:///./app.db"
     seed_on_startup: bool = True  # load the demo dataset when the database is empty (fresh container)
     agent_max_steps: int = 8
     confidence_threshold: float = 0.7
     strong_cost_ratio: float = 10.0  # assumed cost of a strong-model token vs a cheap one
-    agent_timeout_seconds: int = 60
+    agent_timeout_seconds: int = 60  # per agent turn (LLM call plus its tool calls), not for the whole run
+    # Circuit breaker: after this many rate-limit failures in a row, stop calling the LLM for the cooldown
+    llm_breaker_threshold: int = 3
+    llm_breaker_cooldown_seconds: int = 120
+    agent_review_timeout_seconds: int = 1800  # supervised runs: how long the agent waits on one reviewer answer
     # Layer 3 safeguard: complaint hints at lost money or an unresolved serious issue -> escalate
     escalation_phrases: list[str] = [
         "deducted",
