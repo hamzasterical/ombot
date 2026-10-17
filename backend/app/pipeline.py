@@ -11,7 +11,7 @@ from collections.abc import Callable
 from sqlmodel import Session, select
 
 from app import report as report_mod
-from app import routing
+from app import keyword_fallback, routing
 from app.agents import low_reply
 from app.audit import log_decision
 from app.classify import classify
@@ -106,6 +106,8 @@ async def run_pipeline(session: Session, case: Case) -> Case:
     case.assigned_layer = routing.assign_layer(tier)
     # Low tier stays "new" until the Layer 3 reply is actually sent.
     case.status = "new" if tier == "low" else routing.determine_status(tier)
+    # Keyword rules stood in for a failed LLM: route by them, but a human checks before anything is sent.
+    by_keywords = classification.raw_category == keyword_fallback.FALLBACK_TAG
     session.add(case)
     session.commit()
     log_decision(
@@ -113,7 +115,7 @@ async def run_pipeline(session: Session, case: Case) -> Case:
         case.id,
         actor="system",
         action="route",
-        payload={"tier": tier, "layer": case.assigned_layer, "categories": case.categories},
+        payload={"tier": tier, "layer": case.assigned_layer, "categories": case.categories, "by_keywords": by_keywords},
     )
 
     evidence = report_mod.gather_evidence(session, customer_id, text)
@@ -131,8 +133,8 @@ async def run_pipeline(session: Session, case: Case) -> Case:
     if tier == "critical":
         await gateway.create_ticket(case, category, summary, tier, session=session)
 
-    if report is None:
-        case.status = "awaiting_human"  # never auto-reply without a report
+    if report is None or by_keywords:
+        case.status = "awaiting_human"  # never auto-reply without a report, or on a keyword-only classification
     elif tier == "low":
         await low_reply.run(session, case)
     session.add(case)

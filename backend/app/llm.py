@@ -70,6 +70,70 @@ def _note_success() -> None:
 def reset_breaker() -> None:
     """Test helper."""
     _breaker.update(failures=0, open_until=0.0)
+    _keys.update(active=0, cooling_until={})
+
+
+# ---- API key failover --------------------------------------------------------
+# Keys in priority order: LLM_API_KEY first, then LLM_BACKUP_API_KEYS left to right. Every request uses the
+# highest-priority key that is not cooling down, so traffic returns to key #1 as soon as its limit resets.
+# A rate-limited key cools down until the provider's reset time (or the breaker cooldown when the provider gives
+# none). The breaker only counts a rate limit when no other key is left, so with one key nothing changes.
+_keys: dict = {"active": 0, "cooling_until": {}}
+_MIN_KEY_COOLDOWN = 60.0  # seconds; keeps two exhausted keys from bouncing the request back and forth
+
+
+def api_keys() -> list[str]:
+    keys = [settings.llm_api_key, *settings.llm_backup_api_keys.split(",")]
+    return list(dict.fromkeys(k.strip() for k in keys if k and k.strip()))
+
+
+def _key_index() -> int:
+    """Highest-priority key that is not cooling; if all are, the one whose cooldown ends first."""
+    n = len(api_keys())
+    if n == 0:
+        return 0
+    now = time.monotonic()
+    cooling = _keys["cooling_until"]
+    for i in range(n):
+        if cooling.get(i, 0.0) <= now:
+            break
+    else:
+        i = min(range(n), key=lambda j: cooling.get(j, 0.0))
+    if i != _keys["active"]:
+        log.warning("LLM requests now use key #%s of %s", i + 1, n)
+        _keys["active"] = i
+    return i
+
+
+def active_key() -> str:
+    keys = api_keys()
+    return keys[_key_index()] if keys else ""
+
+
+def _reset_at(e: Exception) -> float | None:
+    """Provider's rate-limit reset time as a time.monotonic() value, if the error says when."""
+    raw = None
+    body = getattr(e, "body", None)
+    if isinstance(body, dict):
+        raw = ((body.get("metadata") or {}).get("headers") or {}).get("X-RateLimit-Reset")
+    if raw is None and getattr(e, "response", None) is not None:
+        raw = e.response.headers.get("x-ratelimit-reset")
+    try:
+        seconds = float(raw) / 1000 - time.time()  # OpenRouter sends epoch milliseconds
+    except (TypeError, ValueError):
+        return None
+    return time.monotonic() + max(_MIN_KEY_COOLDOWN, seconds)  # a stale reset time must not make it look free
+
+
+def _switch_key(e: Exception, used: int) -> bool:
+    """Cool down key #used after a rate limit. True when another key is free to retry the request on."""
+    keys = api_keys()
+    if len(keys) < 2 or not isinstance(e, openai.RateLimitError):
+        return False
+    now = time.monotonic()
+    _keys["cooling_until"][used] = _reset_at(e) or now + settings.llm_breaker_cooldown_seconds
+    log.warning("LLM key #%s of %s is rate-limited", used + 1, len(keys))
+    return any(_keys["cooling_until"].get(i, 0.0) <= now for i in range(len(keys)))
 
 
 def get_client(model: str) -> AsyncOpenAI:
@@ -78,7 +142,7 @@ def get_client(model: str) -> AsyncOpenAI:
         headers["HTTP-Referer"] = settings.llm_site_url
     return AsyncOpenAI(
         base_url=settings.llm_base_url or None,
-        api_key=settings.llm_api_key or "unset",
+        api_key=active_key() or "unset",
         default_headers=headers,
         max_retries=3,  # the SDK backs off on 429/5xx, which free OpenRouter tiers hit often
     )
@@ -148,6 +212,7 @@ async def structured[T: BaseModel](
         else:
             messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
             extra = {"response_format": {"type": "json_object"}}
+        used = _key_index()
         try:
             resp = await get_client(model).chat.completions.create(model=model, messages=messages, **extra)
             usage = _add_usage(usage, resp)
@@ -160,6 +225,9 @@ async def structured[T: BaseModel](
         except Exception as e:  # noqa: BLE001  network, auth, rate limit, unsupported params; never raise
             error = f"{type(e).__name__}: {e}"
             log.warning("LLM call failed (%s, compat=%s): %s", model, compat, error)
+            if _switch_key(e, used):  # another account's key is free: same request, same mode, no retry spent
+                attempts += 1
+                continue
             _note_failure(e)
             if _is_rate_limit(e):  # retrying in another mode only spends more of a quota that is already exhausted
                 if breaker_retry_in():
@@ -190,12 +258,17 @@ async def chat_with_tools(model: str, messages: list[dict], tools: list[dict]) -
     """One turn of an OpenAI-style tool-calling conversation. Raises on API errors."""
     if breaker_retry_in():
         raise LLMUnavailable(unavailable_reason())
-    try:
-        resp = await get_client(model).chat.completions.create(model=model, messages=messages, tools=tools)
-        msg = _message(resp)
-    except Exception as e:
-        _note_failure(e)
-        raise
+    while True:
+        used = _key_index()
+        try:
+            resp = await get_client(model).chat.completions.create(model=model, messages=messages, tools=tools)
+            msg = _message(resp)
+            break
+        except Exception as e:
+            if _switch_key(e, used):  # retry the same turn on the next account's key
+                continue
+            _note_failure(e)
+            raise
     _note_success()
     calls: list[ToolCall] = []
     for tc in msg.tool_calls or []:

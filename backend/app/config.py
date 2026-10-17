@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     # LLM
     llm_base_url: str = "https://openrouter.ai/api/v1"
     llm_api_key: str = ""  # one OpenRouter key for every model
+    # Optional comma-separated backup keys (other accounts). When the active key is rate-limited, the same
+    # request is retried at once on the next key that is not cooling down; same base URL and models.
+    llm_backup_api_keys: str = ""
     llm_site_url: str = ""  # optional HTTP-Referer for OpenRouter attribution
     llm_max_concurrency: int = 2  # parallel LLM calls in eval; free tiers rate-limit hard
     classifier_model: str = ""

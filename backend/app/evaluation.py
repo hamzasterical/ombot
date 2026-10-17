@@ -73,7 +73,7 @@ async def _predict_all(session: Session, items: list[dict]) -> list[Prediction]:
             case = Case(complaint_id=complaint.id)
             session.add(case)
             session.commit()
-            cls = await classify(session, case.id, item["text"])
+            cls = await classify(session, case.id, item["text"], use_fallback=False)  # measure the LLM itself
             return Prediction(
                 item,
                 routing.determine_tier(session, cls, item["text"]),
