@@ -1,0 +1,18 @@
+# secrets: never baked into the image (set them in the platform's Variables tab)
+.env
+**/.env
+**/.env.*
+!**/.env.example
+
+.git
+.claude
+**/__pycache__
+**/*.pyc
+**/.venv
+**/venv
+**/.pytest_cache
+**/.ruff_cache
+**/node_modules
+ombot_frontend/dist
+**/*.db
+**/*.db.bak

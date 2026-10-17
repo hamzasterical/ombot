@@ -1,0 +1,46 @@
+{
+  "create_ticket": {
+    "id": "wf_b77b9c84b5a2",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "complaint_id": { "type": "string" },
+        "category": { "type": "string" },
+        "summary": { "type": "string" },
+        "risk_tier": { "type": "string" },
+        "dashboard_url": { "type": ["string", "null"] },
+        "idempotency_key": { "type": ["string", "null"] }
+      },
+      "required": ["complaint_id", "category", "summary", "risk_tier"]
+    }
+  },
+  "notify_officer": {
+    "id": "wf_e266561b3de6",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "complaint_id": { "type": "string" },
+        "category": { "type": "string" },
+        "risk_tier": { "type": "string" },
+        "summary": { "type": "string" },
+        "required_action": { "type": "string" },
+        "officer_email": { "type": ["string", "null"] }
+      },
+      "required": ["complaint_id", "category", "risk_tier", "summary", "required_action"]
+    }
+  },
+  "send_approved_reply": {
+    "id": "wf_a2fcff390a63",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "complaint_id": { "type": "string" },
+        "reply_text": { "type": "string" },
+        "authorization_token": { "type": "string" },
+        "recipient_email": { "type": ["string", "null"] },
+        "idempotency_key": { "type": ["string", "null"] }
+      },
+      "required": ["complaint_id", "reply_text", "authorization_token"]
+    }
+  }
+}

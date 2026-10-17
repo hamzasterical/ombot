@@ -1,0 +1,418 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════
+   CLINICAL TRIAGE PRECISION DESIGN SYSTEM
+   Ombot Bank Complaint Console
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Custom Properties ─────────────────────────────────── */
+:root {
+  /* Surface / Canvas */
+  --color-surface:              #F8FAFC;
+  --color-surface-bright:       #FFFFFF;
+  --color-surface-container-lowest: #FFFFFF;
+  --color-surface-container-low:    #F1F5F9;
+  --color-surface-container:        #E2E8F0;
+  --color-surface-container-high:   #CBD5E1;
+  --color-surface-container-highest: #94A3B8;
+
+  /* Structural */
+  --color-outline:              #E2E8F0;
+  --color-outline-variant:      #F1F5F9;
+
+  /* Text hierarchy */
+  --color-on-surface:           #0F172A;
+  --color-on-surface-variant:   #334155;
+  --color-secondary:            #475569;
+  --color-tertiary:             #64748B;
+
+  /* Primary action */
+  --color-primary:              #0F172A;
+  --color-on-primary:           #FFFFFF;
+  --color-primary-hover:        #1E293B;
+
+  /* Resolution / Success (Emerald) */
+  --color-tertiary-container:   #D1FAE5;
+  --color-on-tertiary-container: #059669;
+  --color-tertiary-fixed:       #059669;
+
+  /* CRITICAL */
+  --color-error:                #DC2626;
+  --color-on-error:             #FFFFFF;
+  --color-error-container:      #FEF2F2;
+  --color-on-error-container:   #DC2626;
+  --color-error-border:         #FECACA;
+
+  /* MODERATE */
+  --color-warning:              #B45309;
+  --color-warning-container:    #FFFBEB;
+  --color-on-warning-container: #B45309;
+  --color-warning-border:       #FDE68A;
+
+  /* UNKNOWN / AI */
+  --color-info:                 #0369A1;
+  --color-info-container:       #F0F9FF;
+  --color-on-info-container:    #0369A1;
+  --color-info-border:          #BAE6FD;
+
+  /* Secondary container */
+  --color-secondary-container:  #F8FAFC;
+
+  /* Shadows */
+  --shadow-sm:  0 2px 6px rgba(15,23,42,0.05);
+  --shadow-md:  0 6px 16px rgba(15,23,42,0.08);
+  --shadow-lg:  0 12px 32px rgba(15,23,42,0.12);
+
+  /* Spacing 8-pt grid */
+  --space-xs:   0.25rem;   /* 4px  */
+  --space-sm:   0.5rem;    /* 8px  */
+  --space-md:   1rem;      /* 16px */
+  --space-lg:   1.5rem;    /* 24px */
+  --space-xl:   2rem;      /* 32px */
+  --space-2xl:  3rem;      /* 48px */
+}
+
+/* ── Base Reset ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { font-size: 16px; }
+
+body {
+  margin: 0;
+  background: var(--color-surface);
+  color: var(--color-on-surface);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Material Symbols Tweaks ───────────────────────────── */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+  line-height: 1;
+  font-size: inherit;
+}
+
+/* ── Typography Scale ───────────────────────────────────── */
+
+/* Display / Headlines — Plus Jakarta Sans */
+.font-display-lg  { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 2.25rem; font-weight: 800; line-height: 1.15; letter-spacing: -0.03em; }
+.font-headline-lg { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.75rem; font-weight: 700; line-height: 1.2;  letter-spacing: -0.02em; }
+.font-headline-md { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.375rem; font-weight: 600; line-height: 1.25; letter-spacing: -0.015em; }
+.font-headline-sm { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.125rem; font-weight: 600; line-height: 1.3;  letter-spacing: -0.01em; }
+
+/* Text sizes for headline classes (matching Tailwind-style names) */
+.text-headline-lg { font-size: 1.75rem; }
+.text-headline-md { font-size: 1.375rem; }
+.text-headline-sm { font-size: 1.125rem; }
+
+/* Body — DM Sans */
+.font-body-lg { font-family: 'DM Sans', sans-serif; font-size: 1rem;    font-weight: 400; line-height: 1.6; }
+.font-body-md { font-family: 'DM Sans', sans-serif; font-size: 0.9375rem; font-weight: 400; line-height: 1.55; }
+.font-body-sm { font-family: 'DM Sans', sans-serif; font-size: 0.8125rem; font-weight: 400; line-height: 1.5; }
+
+.text-body-lg { font-size: 1rem; }
+.text-body-md { font-size: 0.9375rem; }
+.text-body-sm { font-size: 0.8125rem; }
+
+/* Labels — DM Sans Medium */
+.font-label-lg { font-family: 'DM Sans', sans-serif; font-size: 0.9375rem; font-weight: 600; line-height: 1.4; letter-spacing: 0.005em; }
+.font-label-md { font-family: 'DM Sans', sans-serif; font-size: 0.8125rem; font-weight: 500; line-height: 1.4; letter-spacing: 0.01em; }
+.font-label-sm { font-family: 'DM Sans', sans-serif; font-size: 0.6875rem; font-weight: 600; line-height: 1.3; letter-spacing: 0.04em; }
+
+.text-label-lg { font-size: 0.9375rem; }
+.text-label-md { font-size: 0.8125rem; }
+.text-label-sm { font-size: 0.6875rem; }
+
+/* Mono — JetBrains Mono */
+.font-mono-data    { font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 0.9375rem; font-weight: 500; line-height: 1.5; letter-spacing: -0.02em; }
+.font-mono-data-sm { font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 0.8125rem; font-weight: 500; line-height: 1.45; letter-spacing: 0; }
+
+.text-mono-data    { font-size: 0.9375rem; }
+.text-mono-data-sm { font-size: 0.8125rem; }
+
+/* ── Color Utilities ────────────────────────────────────── */
+
+/* Surfaces */
+.bg-surface                   { background: var(--color-surface); }
+.bg-surface-bright            { background: var(--color-surface-bright); }
+.bg-surface-container-lowest  { background: var(--color-surface-container-lowest); }
+.bg-surface-container-low     { background: var(--color-surface-container-low); }
+.bg-surface-container         { background: var(--color-surface-container); }
+.bg-surface-container-high    { background: var(--color-surface-container-high); }
+.bg-surface-container-highest { background: var(--color-surface-container-highest); }
+
+/* Borders */
+.border-outline         { border-color: var(--color-outline); }
+.border-outline-variant { border-color: var(--color-outline-variant); }
+
+/* Text */
+.text-on-surface         { color: var(--color-on-surface); }
+.text-on-surface-variant { color: var(--color-on-surface-variant); }
+.text-secondary          { color: var(--color-secondary); }
+.text-tertiary           { color: var(--color-tertiary); }
+
+/* Primary */
+.bg-primary    { background: var(--color-primary); }
+.text-primary  { color: var(--color-primary); }
+.text-on-primary { color: var(--color-on-primary); }
+
+/* Tertiary/Resolution (emerald green) */
+.bg-tertiary-container       { background: var(--color-tertiary-container); }
+.text-on-tertiary-container  { color: var(--color-on-tertiary-container); }
+.bg-tertiary-fixed           { background: var(--color-tertiary-fixed); }
+
+/* Error/Critical */
+.bg-error            { background: var(--color-error); }
+.text-error          { color: var(--color-error); }
+.text-on-error       { color: var(--color-on-error); }
+.bg-error-container  { background: var(--color-error-container); }
+.text-on-error-container { color: var(--color-on-error-container); }
+
+/* Secondary container */
+.bg-secondary-container { background: var(--color-secondary-container); }
+
+/* ── Risk Tier Badge System ──────────────────────────────── */
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.5rem;
+  padding: 0 0.625rem;
+  border-radius: 0.25rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.risk-badge-critical {
+  background: var(--color-error-container);
+  border: 1px solid var(--color-error-border);
+  color: var(--color-error);
+}
+
+.risk-badge-moderate {
+  background: var(--color-warning-container);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-warning);
+}
+
+.risk-badge-low {
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  color: #047857;
+}
+
+.risk-badge-unknown {
+  background: var(--color-info-container);
+  border: 1px solid var(--color-info-border);
+  color: var(--color-info);
+}
+
+/* ── Filter Chips (pill-style) ──────────────────────────── */
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 2rem;
+  padding: 0 0.875rem;
+  border-radius: 9999px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.filter-chip-inactive {
+  background: var(--color-surface-container-low);
+  color: var(--color-secondary);
+}
+.filter-chip-active {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+/* ── Card / Elevation ───────────────────────────────────── */
+.card-level1 {
+  background: var(--color-surface-bright);
+  border: 1px solid var(--color-outline);
+  box-shadow: var(--shadow-sm);
+  border-radius: 0.5rem;
+}
+
+.card-level2 {
+  background: var(--color-surface-bright);
+  border: 1px solid var(--color-outline);
+  box-shadow: var(--shadow-md);
+  border-radius: 0.75rem;
+}
+
+.modal-overlay {
+  background: rgba(15, 23, 42, 0.40);
+  backdrop-filter: blur(2px);
+}
+
+/* ── Sidebar Nav Item ───────────────────────────────────── */
+.nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  color: var(--color-secondary);
+  text-decoration: none;
+  transition: background 0.12s, color 0.12s;
+}
+
+.nav-item:hover {
+  background: var(--color-surface-container-low);
+  color: var(--color-on-surface);
+}
+
+.nav-item-active {
+  background: var(--color-surface-container-low);
+  color: var(--color-primary);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Button System ──────────────────────────────────────── */
+
+/* Primary */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 0.5rem;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover  { background: var(--color-primary-hover); }
+.btn-primary:active { transform: scale(0.99); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Resolution (emerald) */
+.btn-resolution {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 0.5rem;
+  background: var(--color-on-tertiary-container);
+  color: #FFFFFF;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-resolution:hover { background: #047857; }
+
+/* Secondary */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 0.5rem;
+  background: var(--color-surface-bright);
+  color: var(--color-on-surface);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1px solid var(--color-outline);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-secondary:hover { background: var(--color-surface); border-color: #CBD5E1; }
+
+/* ── Data Table ─────────────────────────────────────────── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8125rem;
+}
+.data-table th {
+  height: 3rem;
+  padding: 0 1rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-outline);
+  color: var(--color-tertiary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+}
+.data-table td {
+  height: 3rem;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--color-outline-variant);
+  vertical-align: middle;
+}
+.data-table tbody tr:hover { background: var(--color-surface); }
+
+/* ── Form Inputs ────────────────────────────────────────── */
+.form-input {
+  height: 2.5rem;
+  width: 100%;
+  padding: 0 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--color-surface-bright);
+  border: 1px solid var(--color-outline);
+  color: var(--color-on-surface);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9375rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-input:focus {
+  border-color: var(--color-on-tertiary-container);
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-surface-container); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-surface-container-high); }
+
+/* ── Animations ─────────────────────────────────────────── */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fadeSlideIn 0.2s ease-out; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.animate-pulse-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
