@@ -111,10 +111,10 @@ export const MetricsPage: React.FC = () => {
   const totalTierCount =
     (metrics.tierCounts.critical || 0) + (metrics.tierCounts.moderate || 0) +
     (metrics.tierCounts.low || 0) + (metrics.tierCounts.unknown || 0) || 1
-  const criticalPct  = Math.round(((metrics.tierCounts.critical  || 0) / totalTierCount) * 100)
-  const moderatePct  = Math.round(((metrics.tierCounts.moderate  || 0) / totalTierCount) * 100)
-  const lowPct       = Math.round(((metrics.tierCounts.low       || 0) / totalTierCount) * 100)
-  const unknownPct   = Math.round(((metrics.tierCounts.unknown   || 0) / totalTierCount) * 100)
+  const criticalPct = Math.round(((metrics.tierCounts.critical || 0) / totalTierCount) * 100)
+  const moderatePct = Math.round(((metrics.tierCounts.moderate || 0) / totalTierCount) * 100)
+  const lowPct = Math.round(((metrics.tierCounts.low || 0) / totalTierCount) * 100)
+  const unknownPct = Math.round(((metrics.tierCounts.unknown || 0) / totalTierCount) * 100)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -195,10 +195,10 @@ export const MetricsPage: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <div style={{ height: 24, width: '100%', borderRadius: '0.5rem', overflow: 'hidden', display: 'flex', border: '1px solid var(--color-outline)' }}>
             {[
-              { pct: criticalPct,  color: '#DC2626', label: 'Critical' },
-              { pct: moderatePct,  color: '#D97706', label: 'Moderate' },
-              { pct: lowPct,       color: '#059669', label: 'Low' },
-              { pct: unknownPct,   color: '#0369A1', label: 'Unknown' },
+              { pct: criticalPct, color: '#DC2626', label: 'Critical' },
+              { pct: moderatePct, color: '#D97706', label: 'Moderate' },
+              { pct: lowPct, color: '#059669', label: 'Low' },
+              { pct: unknownPct, color: '#0369A1', label: 'Unknown' },
             ].map(seg => (
               <div key={seg.label} style={{
                 width: `${seg.pct}%`, background: seg.color,
@@ -215,10 +215,10 @@ export const MetricsPage: React.FC = () => {
           {/* Legend blocks */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem', paddingTop: '0.25rem' }}>
             {[
-              { label: 'Critical Risk',       color: '#DC2626', bgColor: '#FEF2F2', borderColor: '#FECACA', count: metrics.tierCounts.critical,  pct: criticalPct },
-              { label: 'Moderate Risk',        color: '#B45309', bgColor: '#FFFBEB', borderColor: '#FDE68A', count: metrics.tierCounts.moderate,  pct: moderatePct },
-              { label: 'Low Risk (Automated)', color: '#047857', bgColor: '#ECFDF5', borderColor: '#A7F3D0', count: metrics.tierCounts.low,       pct: lowPct },
-              { label: 'Unknown / Learning',   color: '#0369A1', bgColor: '#F0F9FF', borderColor: '#BAE6FD', count: metrics.tierCounts.unknown || 0, pct: unknownPct },
+              { label: 'Critical Risk', color: '#DC2626', bgColor: '#FEF2F2', borderColor: '#FECACA', count: metrics.tierCounts.critical, pct: criticalPct },
+              { label: 'Moderate Risk', color: '#B45309', bgColor: '#FFFBEB', borderColor: '#FDE68A', count: metrics.tierCounts.moderate, pct: moderatePct },
+              { label: 'Low Risk (Automated)', color: '#047857', bgColor: '#ECFDF5', borderColor: '#A7F3D0', count: metrics.tierCounts.low, pct: lowPct },
+              { label: 'Unknown / Learning', color: '#0369A1', bgColor: '#F0F9FF', borderColor: '#BAE6FD', count: metrics.tierCounts.unknown || 0, pct: unknownPct },
             ].map(item => (
               <div key={item.label} style={{ background: item.bgColor, border: `1px solid ${item.borderColor}`, borderRadius: '0.5rem', padding: '0.75rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>

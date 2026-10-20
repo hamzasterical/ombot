@@ -3,18 +3,19 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 
 from app import llm
+from app.auth import require_user
 from app.config import settings
 from app.db import engine, init_db
 from app.models import Category
 from app.pipeline import recover_interrupted
 from app.seeding import build
-from app.routers import audit, cases, categories, complaints, eval, inbound, metrics
+from app.routers import audit, auth, cases, categories, complaints, eval, inbound, metrics
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "ombot_frontend" / "dist"
 
@@ -76,8 +77,9 @@ def health() -> dict:
     }
 
 
+app.include_router(auth.router, prefix="/api")
 for module in (complaints, cases, categories, audit, metrics, eval, inbound):
-    app.include_router(module.router, prefix="/api")
+    app.include_router(module.router, prefix="/api")  # no sign-in required (demo build)
 
 
 # Serve the built frontend (single service, one port). Registered last so /api wins.

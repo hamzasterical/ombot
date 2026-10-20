@@ -129,3 +129,11 @@ class LearningExample(SQLModel, table=True):
     complaint_text: str
     human_category_id: str = Field(foreign_key="category.id")
     created_at: datetime = Field(default_factory=_now)
+
+
+class User(SQLModel, table=True):
+    id: str = Field(primary_key=True)
+    name: str
+    email: str = Field(index=True, unique=True)
+    password_hash: str
+    created_at: datetime = Field(default_factory=_now)

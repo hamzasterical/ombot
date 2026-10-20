@@ -1,6 +1,31 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════
+   OMBOT LANDING — DESIGN TOKENS (Tailwind v4 is CSS-first:
+   this @theme block *is* the Tailwind config)
+   ═══════════════════════════════════════════════════════ */
+@theme {
+  --color-neon: #ccff00;
+  --color-ink: #1c180d;
+  --color-ink-deep: #12100a;
+  --color-gray-dark: #8a8783;
+  --color-gray-mid: #b4b1ab;
+  --color-gray-light: #d4d0c9;
+
+  --font-display: "Inter Tight", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --neon: #ccff00;
+  --ink: #1c180d;
+  --gray-dark: #8a8783;
+  --gray-mid: #b4b1ab;
+  --gray-light: #d4d0c9;
+}
+
+/* ═══════════════════════════════════════════════════════
    CLINICAL TRIAGE PRECISION DESIGN SYSTEM
    Ombot Bank Complaint Console
    ═══════════════════════════════════════════════════════ */

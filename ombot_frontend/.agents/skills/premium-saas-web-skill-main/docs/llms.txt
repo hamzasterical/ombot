@@ -1,0 +1,32 @@
+# premium-saas-web
+
+> Open-source Agent Skill (SKILL.md) that teaches AI coding agents (Claude Code, OpenAI Codex, Cursor, Google Antigravity) to build premium SaaS, AI-product, agency and portfolio websites. It contains 4 design directions, 18 copy-ready CSS/HTML recipes and a GSAP + Lenis motion system measured from top-selling ThemeForest templates. MIT licensed. Made by MiddleSugar7000, a full-stack developer for hire.
+
+Install for any agent: `npx skills add MiddleSugar7000/premium-saas-web-skill`
+
+Benchmark (Claude Opus 5.5, 4 one-line prompts, isolated runs, no memory): 97.5% of automated design-quality checks passed with the skill vs 75% without. That costs about 11 min and $2.70 per page vs 2.3 min and $0.70.
+
+## Skill files
+- [SKILL.md](https://github.com/MiddleSugar7000/premium-saas-web-skill/blob/main/skills/premium-saas-web/SKILL.md): workflow, page rhythm, self-review checklist, anti-patterns
+- [directions/](https://github.com/MiddleSugar7000/premium-saas-web-skill/tree/main/skills/premium-saas-web/directions): Ember Dark, Tactile Light, Editorial Mono and Noir Spotlight, one folder each (tokens + signature techniques)
+- [shared/light.md](https://github.com/MiddleSugar7000/premium-saas-web-skill/blob/main/skills/premium-saas-web/shared/light.md): sculpted glow, backgrounds, hairline grid
+- [shared/typography.md](https://github.com/MiddleSugar7000/premium-saas-web-skill/blob/main/skills/premium-saas-web/shared/typography.md): display type, line-by-line scroll-fill text
+- [shared/product-proof.md](https://github.com/MiddleSugar7000/premium-saas-web-skill/blob/main/skills/premium-saas-web/shared/product-proof.md): browser mockup, bento mini-UIs
+- [shared/components.md](https://github.com/MiddleSugar7000/premium-saas-web-skill/blob/main/skills/premium-saas-web/shared/components.md): glass nav, badges, marquees, pricing, footer wordmark
+- [shared/logos.md](https://github.com/MiddleSugar7000/premium-saas-web-skill/blob/main/skills/premium-saas-web/shared/logos.md): real brand logos instead of letter placeholders
+- [shared/motion.md](https://github.com/MiddleSugar7000/premium-saas-web-skill/blob/main/skills/premium-saas-web/shared/motion.md): GSAP, ScrollTrigger, SplitText and Lenis setup, with gotchas
+
+## Install guides
+- [Claude Code](https://github.com/MiddleSugar7000/premium-saas-web-skill/blob/main/guides/claude-code.md): ~/.claude/skills/ or plugin marketplace
+- [OpenAI Codex](https://github.com/MiddleSugar7000/premium-saas-web-skill/blob/main/guides/codex.md): ~/.codex/skills/
+- [Cursor](https://github.com/MiddleSugar7000/premium-saas-web-skill/blob/main/guides/cursor.md): ~/.cursor/skills/ or .cursor/skills/
+- [Google Antigravity](https://github.com/MiddleSugar7000/premium-saas-web-skill/blob/main/guides/antigravity.md): ~/.gemini/antigravity/skills/ or .agents/skills/
+
+## Demo and benchmark
+- [Before/after demo](https://middlesugar7000.github.io/premium-saas-web-skill/)
+- [Benchmark method and raw results](https://github.com/MiddleSugar7000/premium-saas-web-skill/tree/main/benchmark)
+
+## Author: Vantle
+- [Vantle](https://vantle.studio): independent design and development studio. Brand and identity, web design and 3D, full-stack SaaS, APIs and AI features. Focused landing pages usually take 2 to 4 weeks, complete SaaS builds 6 to 12.
+- Selected work: [LIMEN](https://vantle.studio/work/limen) (a watch that only runs while you scroll), [Curtly](https://curtly.dev) (LLM gateway that cuts token costs), [Draftify](https://draftify.site) (AI coding workspace)
+- Contact: [project form](https://vantle.studio/#start) or hello@vantle.studio, reply within one business day

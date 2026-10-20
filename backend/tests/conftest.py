@@ -55,6 +55,7 @@ def client(session, monkeypatch):
     from fastapi.testclient import TestClient
 
     from app import pipeline, sse
+    from app.auth import require_user
     from app.db import get_session
     from app.main import app
 
@@ -67,5 +68,6 @@ def client(session, monkeypatch):
         return session
 
     app.dependency_overrides[get_session] = fresh_session
+    app.dependency_overrides[require_user] = lambda: None  # auth has its own tests
     yield TestClient(app)  # no `with`: skips the lifespan so the real DB file is untouched
     app.dependency_overrides.clear()

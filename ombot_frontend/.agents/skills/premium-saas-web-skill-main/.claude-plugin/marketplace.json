@@ -1,0 +1,15 @@
+{
+  "name": "middlesugar7000",
+  "owner": { "name": "MiddleSugar7000", "url": "https://vantle.studio" },
+  "metadata": { "description": "Agent Skills by Vantle, an independent design and development studio (vantle.studio)." },
+  "plugins": [
+    {
+      "name": "premium-saas-web",
+      "source": "./",
+      "description": "Premium SaaS / AI / agency / portfolio website design skill: 4 design directions, 18 CSS recipes, GSAP + Lenis motion.",
+      "version": "1.0.0",
+      "author": { "name": "MiddleSugar7000" },
+      "category": "design"
+    }
+  ]
+}

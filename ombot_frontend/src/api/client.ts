@@ -262,3 +262,17 @@ export const api = {
     return toMetrics(await request<BackendMetrics>('/metrics'))
   },
 }
+
+export interface AuthUser {
+  id: string
+  name: string
+  email: string
+}
+
+export const authApi = {
+  me: () => request<AuthUser>('/auth/me'),
+  login: (email: string, password: string) => post<AuthUser>('/auth/login', { email, password }),
+  signup: (name: string, email: string, password: string) =>
+    post<AuthUser>('/auth/signup', { name, email, password }),
+  logout: () => fetch('/api/auth/logout', { method: 'POST' }).then(() => undefined),
+}

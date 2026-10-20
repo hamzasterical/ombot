@@ -40,6 +40,11 @@ class Settings(BaseSettings):
         "in:inbox -from:me -category:promotions -category:social -category:updates -category:forums"
     )
 
+    # Auth: signs the session cookie; unset = random per process (everyone is signed out on restart)
+    auth_secret: str = ""
+    auth_session_hours: int = 24 * 7
+    auth_cookie_secure: bool = False  # set true when served over HTTPS
+
     # App
     database_url: str = "sqlite:///./app.db"
     seed_on_startup: bool = True  # load the demo dataset when the database is empty (fresh container)

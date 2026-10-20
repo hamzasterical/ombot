@@ -2,9 +2,11 @@ import React from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api, isMockMode } from '../../api/client'
+import { useAuth } from '../../auth/AuthContext'
 
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation()
+  const { user, logout } = useAuth()
 
   const { data: criticalCases = [] } = useQuery({
     queryKey: ['cases', 'critical'],
@@ -355,12 +357,21 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-on-surface)', lineHeight: 1.2 }}>
-                Reviewer: Sarah Jenkins
+                Reviewer: {user?.name}
               </span>
               <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: '0.6875rem', color: 'var(--color-secondary)', fontWeight: 500 }}>
-                Tier-3 Financial Crime &amp; Ops Specialist
+                {user?.email}
               </span>
             </div>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              title="Sign out"
+              aria-label="Sign out"
+              style={{ background: 'none', border: 'none', padding: 0, marginLeft: 4, cursor: 'pointer', display: 'flex' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--color-secondary)' }}>logout</span>
+            </button>
           </div>
         </header>
 
